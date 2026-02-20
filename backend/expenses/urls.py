@@ -13,6 +13,10 @@ from .views import GenerateRecurringRemindersView
 from .views import SetBudgetView
 from .views import BudgetStatusView
 from .views import OverspendingAlertView
+from .views import (
+    RecurringExpenseListCreateView,
+    RecurringExpenseDetailView
+)
 
 
 
@@ -56,4 +60,13 @@ path(
     name='budget-alerts'
 ),
 
+    path(
+        "recurring/",
+        RecurringExpenseListCreateView.as_view()
+    ),
+
+    path(
+        "recurring/<int:pk>/",
+        RecurringExpenseDetailView.as_view()
+    ),
 ]

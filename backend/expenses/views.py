@@ -8,6 +8,11 @@ from .serializers import BillReminderSerializer, BudgetSerializer
 from .serializers import ExpenseSerializer
 from datetime import date
 from .models import Budget, Expense
+from .models import RecurringExpense
+from .serializers import RecurringExpenseSerializer
+from .services import generate_recurring_expenses
+from rest_framework.permissions import IsAuthenticated
+
 
 
 class AddExpenseView(APIView):
@@ -34,10 +39,13 @@ class ExpenseListView(APIView):
 
     def get(self, request):
 
+        # ADD THIS LINE HERE (FIRST LINE)
+        generate_recurring_expenses()
+
         user_id = request.query_params.get("user")
 
         if user_id:
-            expenses = Expense.objects.filter(user_id=user_id)
+            expenses = Expense.objects.filter(user_id=user_id).order_by("-date")
         else:
             expenses = Expense.objects.none()
 
@@ -431,3 +439,64 @@ class OverspendingAlertView(APIView):
             },
             status=status.HTTP_200_OK
         )
+
+class RecurringExpenseListCreateView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        recurring = RecurringExpense.objects.filter(user=request.user)
+
+        serializer = RecurringExpenseSerializer(recurring, many=True)
+
+        return Response(serializer.data)
+
+
+    def post(self, request):
+
+        serializer = RecurringExpenseSerializer(data=request.data)
+
+        if serializer.is_valid():
+
+            serializer.save(user=request.user)
+
+            return Response(serializer.data)
+        
+
+class RecurringExpenseDetailView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, pk):
+
+        recurring = RecurringExpense.objects.get(
+            pk=pk,
+            user=request.user
+        )
+
+        serializer = RecurringExpenseSerializer(
+            recurring,
+            data=request.data,
+            partial=True
+        )
+
+        if serializer.is_valid():
+
+            serializer.save()
+
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=400)
+
+
+    def delete(self, request, pk):
+
+        recurring = RecurringExpense.objects.get(
+            pk=pk,
+            user=request.user
+        )
+
+        recurring.delete()
+
+        return Response({"message": "Deleted"})

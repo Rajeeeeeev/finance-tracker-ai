@@ -71,3 +71,12 @@ class BudgetSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+from .models import RecurringExpense
+
+
+class RecurringExpenseSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = RecurringExpense
+        fields = "__all__"
+        read_only_fields = ("user", "last_generated_date", "created_at", "updated_at")
