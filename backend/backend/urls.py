@@ -17,17 +17,18 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 
-
 urlpatterns = [
 
     path('admin/', admin.site.urls),
-    path('api/', include('users.urls')),
-    path('api/', include('expenses.urls')),
+
+    path('api/users/', include('users.urls')),
     path('api/income/', include('income.urls')),
-    path('api/', include('investments.urls')),
-    path("api/savings/", include("savings.urls")),
-    path("api/liabilities/", include("liabilities.urls")),
+    path('api/expenses/', include('expenses.urls')),
+    path('api/savings/', include('savings.urls')),
+    path('api/liabilities/', include('liabilities.urls')),
+    path('api/investments/', include('investments.urls')),
 
 ]
+
 
 

@@ -17,15 +17,17 @@ class IncomeSerializer(serializers.ModelSerializer):
             "income_type",
             "income_type_name",
             "amount",
-            "source",
+            "source_name",   # ✅ correct field name
             "date",
-            "month",
-            "year",
-            "notes",
-            "created_at"
+            "created_at",
+            "updated_at"
         ]
 
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at"
+        ]
 
     def create(self, validated_data):
 

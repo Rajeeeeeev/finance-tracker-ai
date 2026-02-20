@@ -9,38 +9,14 @@ from .views import (
 
 urlpatterns = [
 
-    # Existing
-    path(
-        'add-income/',
-        AddIncomeView.as_view(),
-        name='add-income'
-    ),
+    path('add-income/', AddIncomeView.as_view()),
 
-    path(
-        'income-summary/',
-        IncomeSummaryView.as_view(),
-        name='income-summary'
-    ),
+    path('income-summary/', IncomeSummaryView.as_view()),
 
-    # NEW: list + filter
-    path(
-        'income-list/',
-        IncomeListView.as_view(),
-        name='income-list'
-    ),
+    path('income-list/', IncomeListView.as_view()),
 
-    # NEW: update
-    path(
-        'update-income/<uuid:id>/',
-        UpdateIncomeView.as_view(),
-        name='update-income'
-    ),
+    path('update-income/<uuid:id>/', UpdateIncomeView.as_view()),
 
-    # NEW: delete
-    path(
-        'delete-income/<uuid:id>/',
-        DeleteIncomeView.as_view(),
-        name='delete-income'
-    ),
+    path('delete-income/<uuid:id>/', DeleteIncomeView.as_view()),
 
 ]
