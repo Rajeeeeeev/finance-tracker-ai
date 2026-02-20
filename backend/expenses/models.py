@@ -54,7 +54,7 @@ class Expense(models.Model):
     )
 
     date = models.DateField()
-    
+
     recurring_expense = models.ForeignKey(
         "RecurringExpense",
         on_delete=models.SET_NULL,
@@ -122,7 +122,7 @@ class BillReminder(models.Model):
     is_paid = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
-
+    expense_created = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
