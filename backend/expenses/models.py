@@ -32,6 +32,15 @@ class Expense(models.Model):
         ('Wallet', 'Wallet'),
     ]
 
+    # ADD THIS BLOCK HERE (inside class, before fields)
+    SOURCE_CHOICES = [
+        ("MANUAL", "Manual"),
+        ("EMI", "EMI"),
+        ("RECURRING", "Recurring"),
+        ("BILL", "Bill"),
+    ]
+
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     amount = models.DecimalField(max_digits=10, decimal_places=2)
@@ -61,6 +70,22 @@ class Expense(models.Model):
         null=True,
         blank=True,
         related_name="generated_expenses"
+    )
+
+    # ADD THIS FIELD
+    source = models.CharField(
+        max_length=20,
+        choices=SOURCE_CHOICES,
+        default="MANUAL"
+    )
+
+    # ADD THIS FIELD
+    liability = models.ForeignKey(
+        "liabilities.Liability",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="expenses"
     )
 
     created_at = models.DateTimeField(auto_now_add=True)

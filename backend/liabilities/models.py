@@ -1,9 +1,15 @@
 from django.db import models
 from django.conf import settings
 from decimal import Decimal
+import math
+from datetime import date
 
 User = settings.AUTH_USER_MODEL
 
+
+# =====================================================
+# LIABILITY MODEL (Loan Master Record)
+# =====================================================
 
 class Liability(models.Model):
 
@@ -33,6 +39,7 @@ class Liability(models.Model):
         db_index=True
     )
 
+    # Loan inputs from user
     principal_amount = models.DecimalField(
         max_digits=12,
         decimal_places=2
@@ -46,35 +53,56 @@ class Liability(models.Model):
 
     tenure_months = models.IntegerField()
 
+    start_date = models.DateField()
+
+
+    # Automatically calculated fields
     emi_amount = models.DecimalField(
         max_digits=12,
-        decimal_places=2
+        decimal_places=2,
+        blank=True,
+        null=True
     )
 
     total_payable = models.DecimalField(
         max_digits=12,
-        decimal_places=2
+        decimal_places=2,
+        blank=True,
+        null=True
     )
 
     total_interest = models.DecimalField(
         max_digits=12,
-        decimal_places=2
+        decimal_places=2,
+        blank=True,
+        null=True
     )
 
     remaining_principal = models.DecimalField(
         max_digits=12,
-        decimal_places=2
+        decimal_places=2,
+        blank=True,
+        null=True
     )
 
-    start_date = models.DateField()
+    remaining_months = models.IntegerField(
+        blank=True,
+        null=True
+    )
 
-    end_date = models.DateField(db_index=True)
+    end_date = models.DateField(
+        blank=True,
+        null=True,
+        db_index=True
+    )
 
-    remaining_months = models.IntegerField()
-
-    is_active = models.BooleanField(default=True, db_index=True)
+    is_active = models.BooleanField(
+        default=True,
+        db_index=True
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
+
     updated_at = models.DateTimeField(auto_now=True)
 
 
@@ -89,7 +117,73 @@ class Liability(models.Model):
 
 
     def __str__(self):
+
         return f"{self.name} - {self.user}"
+
+
+    # =====================================================
+    # EMI CALCULATION
+    # =====================================================
+
+    def calculate_emi(self):
+
+        P = float(self.principal_amount)
+
+        r = float(self.interest_rate) / 12 / 100
+
+        n = self.tenure_months
+
+        if r == 0:
+            emi = P / n
+        else:
+            emi = P * r * (1 + r)**n / ((1 + r)**n - 1)
+
+        return Decimal(round(emi, 2))
+
+
+    # =====================================================
+    # AUTO CALCULATE ON SAVE
+    # =====================================================
+
+    def save(self, *args, **kwargs):
+
+        is_new = self.pk is None
+
+        if is_new:
+
+            emi = self.calculate_emi()
+
+            total_payable = emi * self.tenure_months
+
+            total_interest = total_payable - self.principal_amount
+
+            self.emi_amount = emi
+
+            self.total_payable = total_payable
+
+            self.total_interest = total_interest
+
+            self.remaining_principal = self.principal_amount
+
+            self.remaining_months = self.tenure_months
+
+            # calculate end date
+            months = self.tenure_months
+            year = self.start_date.year + months // 12
+            month = self.start_date.month + months % 12
+
+            if month > 12:
+                year += 1
+                month -= 12
+
+            self.end_date = date(year, month, self.start_date.day)
+
+        super().save(*args, **kwargs)
+
+
+# =====================================================
+# LIABILITY PAYMENT MODEL (EMI HISTORY)
+# =====================================================
 
 class LiabilityPayment(models.Model):
 
@@ -112,7 +206,9 @@ class LiabilityPayment(models.Model):
         decimal_places=2
     )
 
-    payment_date = models.DateField(db_index=True)
+    payment_date = models.DateField(
+        db_index=True
+    )
 
     principal_component = models.DecimalField(
         max_digits=12,
@@ -124,6 +220,14 @@ class LiabilityPayment(models.Model):
         max_digits=12,
         decimal_places=2,
         default=0
+    )
+
+    expense = models.ForeignKey(
+        "expenses.Expense",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="liability_payments"
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -140,4 +244,26 @@ class LiabilityPayment(models.Model):
 
 
     def __str__(self):
+
         return f"{self.liability.name} - {self.amount}"
+
+
+    # =====================================================
+    # APPLY PAYMENT LOGIC
+    # =====================================================
+
+    def apply_payment(self):
+
+        liability = self.liability
+
+        liability.remaining_principal -= self.principal_component
+
+        liability.remaining_months -= 1
+
+        if liability.remaining_months <= 0:
+
+            liability.is_active = False
+
+            liability.remaining_principal = Decimal("0.00")
+
+        liability.save()

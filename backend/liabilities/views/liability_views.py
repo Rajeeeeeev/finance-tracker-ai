@@ -23,8 +23,14 @@ class LiabilityCreateAPIView(APIView):
 
         if serializer.is_valid():
 
-            # Use validated_data safely
-            validated_data = serializer.validated_data
+            validated_data = serializer.validated_data.copy()
+
+            # REMOVE calculated fields
+            validated_data.pop("emi_amount", None)
+            validated_data.pop("total_interest", None)
+            validated_data.pop("total_payable", None)
+            validated_data.pop("remaining_principal", None)
+            validated_data.pop("remaining_months", None)
 
             liability = LiabilityService.create_liability(
                 user=request.user,
@@ -42,29 +48,38 @@ class LiabilityCreateAPIView(APIView):
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
         )
-
-
 # -----------------------------------------
-# LIST LIABILITIES
-# -----------------------------------------
+# PAYMENT HISTORY VIEW
+# -----------------------------------------  
 
-class LiabilityListAPIView(APIView):
+from liabilities.models import LiabilityPayment
+
+class LiabilityPaymentHistoryAPIView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
+    def get(self, request, liability_id):
 
-        liabilities = LiabilityService.get_user_liabilities(
-            request.user
-        )
+        payments = LiabilityPayment.objects.filter(
+            liability_id=liability_id,
+            user=request.user
+        ).order_by("-payment_date")
 
-        serializer = LiabilitySerializer(
-            liabilities,
-            many=True
-        )
+        data = []
 
-        return Response(serializer.data)
+        for payment in payments:
 
+            data.append({
+
+                "id": payment.id,
+                "amount": payment.amount,
+                "payment_date": payment.payment_date,
+                "principal_component": payment.principal_component,
+                "interest_component": payment.interest_component,
+
+            })
+
+        return Response(data)
 
 # -----------------------------------------
 # UPDATE LIABILITY
@@ -141,3 +156,51 @@ class LiabilityDeleteAPIView(APIView):
         return Response({
             "message": "Liability deleted successfully"
         })
+# -----------------------------------------
+# LIST LIABILITIES
+# -----------------------------------------
+
+class LiabilityListAPIView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        liabilities = LiabilityService.get_user_liabilities(
+            request.user
+        )
+
+        serializer = LiabilitySerializer(
+            liabilities,
+            many=True
+        )
+
+        return Response(serializer.data)
+    
+    # -----------------------------------------
+# GET SINGLE LIABILITY
+# -----------------------------------------
+
+class LiabilityDetailAPIView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, liability_id):
+
+        try:
+
+            liability = Liability.objects.get(
+                id=liability_id,
+                user=request.user
+            )
+
+        except Liability.DoesNotExist:
+
+            return Response(
+                {"error": "Liability not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = LiabilitySerializer(liability)
+
+        return Response(serializer.data)

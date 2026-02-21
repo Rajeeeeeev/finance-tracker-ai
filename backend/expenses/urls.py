@@ -15,7 +15,8 @@ from .views import BudgetStatusView
 from .views import OverspendingAlertView
 from .views import (
     RecurringExpenseListCreateView,
-    RecurringExpenseDetailView
+    RecurringExpenseDetailView,
+    UpdateBillReminderView
 )
 
 
@@ -41,6 +42,11 @@ urlpatterns = [
         MarkReminderPaidView.as_view(),
         name="mark-reminder-paid",
     ),
+    path(
+    "reminder/<int:reminder_id>/update/",
+    UpdateBillReminderView.as_view(),
+    name="update-reminder"
+),
     path("reminders/overdue/", OverdueReminderView.as_view(), name="overdue-reminders"),
     path(
         "reminders/generate-recurring/",

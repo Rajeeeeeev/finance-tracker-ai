@@ -181,25 +181,58 @@ class AddBillReminderView(APIView):
 
     class MarkReminderPaidView(APIView):
 
-        def put(self, request, reminder_id):
+           permission_classes = [IsAuthenticated]
 
-            try:
-                reminder = BillReminder.objects.get(id=reminder_id)
+    def put(self, request, reminder_id):
 
-            except BillReminder.DoesNotExist:
-                return Response(
-                    {"error": "Reminder not found"}, status=status.HTTP_404_NOT_FOUND
-                )
-
-            reminder.is_paid = True
-            reminder.save()
-
-            serializer = BillReminderSerializer(reminder)
-
-            return Response(
-                {"message": "Reminder marked as paid", "data": serializer.data},
-                status=status.HTTP_200_OK,
+        try:
+            reminder = BillReminder.objects.get(
+                id=reminder_id,
+                user=request.user
             )
+
+        except BillReminder.DoesNotExist:
+            return Response(
+                {"error": "Reminder not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if reminder.is_paid:
+            return Response(
+                {"message": "Reminder already marked as paid"},
+                status=status.HTTP_200_OK
+            )
+
+        # Mark reminder as paid
+        reminder.is_paid = True
+        reminder.expense_created = True
+        reminder.save()
+
+        # Create Expense
+        expense = Expense.objects.create(
+
+            user=reminder.user,
+
+            amount=reminder.amount,
+
+            category="Bills",
+
+            payment_method="UPI",
+
+            description=f"{reminder.title}",
+
+            date=date.today(),
+
+            source="BILL"
+        )
+
+        return Response(
+            {
+                "message": "Reminder marked as paid and expense created",
+                "expense_id": expense.id
+            },
+            status=status.HTTP_200_OK
+        )
 
 
 class ReminderListView(APIView):
@@ -233,17 +266,42 @@ class MarkReminderPaidView(APIView):
 
         except BillReminder.DoesNotExist:
             return Response(
-                {"error": "Reminder not found"}, status=status.HTTP_404_NOT_FOUND
+                {"error": "Reminder not found"},
+                status=status.HTTP_404_NOT_FOUND
             )
 
+        # Prevent duplicate expense creation
+        if reminder.expense_created:
+         return Response(
+              {"message": "Expense already created"},
+        status=status.HTTP_200_OK
+    )
+
+        # Mark reminder as paid
         reminder.is_paid = True
+        reminder.expense_created = True
         reminder.save()
+
+        # Create Expense from Bill Reminder
+        expense = Expense.objects.create(
+            user=reminder.user,
+            amount=reminder.amount,
+            category="Bills",
+            payment_method="UPI",
+            description=reminder.title,
+            date=date.today(),
+            source="BILL"
+        )
 
         serializer = BillReminderSerializer(reminder)
 
         return Response(
-            {"message": "Reminder marked as paid", "data": serializer.data},
-            status=status.HTTP_200_OK,
+            {
+                "message": "Reminder marked as paid and expense created",
+                "expense_id": expense.id,
+                "data": serializer.data
+            },
+            status=status.HTTP_200_OK
         )
 
 
@@ -500,3 +558,39 @@ class RecurringExpenseDetailView(APIView):
         recurring.delete()
 
         return Response({"message": "Deleted"})
+    
+class UpdateBillReminderView(APIView):
+
+     permission_classes = [IsAuthenticated]
+
+     def put(self, request, reminder_id):
+
+        try:
+            reminder = BillReminder.objects.get(
+                id=reminder_id,
+                user=request.user
+            )
+
+        except BillReminder.DoesNotExist:
+            return Response(
+                {"error": "Reminder not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = BillReminderSerializer(
+            reminder,
+            data=request.data,
+            partial=True
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+
+            return Response(
+                {
+                    "message": "Reminder updated successfully",
+                    "data": serializer.data
+                }
+            )
+
+        return Response(serializer.errors, status=400)
