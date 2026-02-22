@@ -1,5 +1,7 @@
 from decimal import Decimal
+from django.db import transaction
 from django.db.models import Sum
+from django.forms import ValidationError
 from django.utils import timezone
 from dateutil.relativedelta import relativedelta
 
@@ -8,26 +10,77 @@ from savings.models import SavingsGoal, SavingsEntry
 
 class SavingsGoalService:
 
+      # -----------------------------------------
+    # CREATE GOAL
+    # -----------------------------------------
     @staticmethod
-    def create_goal(user, validated_data):
-        return SavingsGoal.objects.create(
+    @transaction.atomic
+    def create_goal(*, user, validated_data):
+
+        # Only allow safe fields
+        allowed_fields = {
+            "name": validated_data["name"],
+            "target_amount": validated_data["target_amount"],
+            "start_date": validated_data["start_date"],
+            "end_date": validated_data["end_date"],
+        }
+
+        # Optional: prevent duplicate active goals with same name
+        if SavingsGoal.objects.filter(
             user=user,
-            **validated_data
+            name=allowed_fields["name"],
+            is_active=True
+        ).exists():
+            raise ValidationError("Active goal with this name already exists.")
+
+        goal = SavingsGoal.objects.create(
+            user=user,
+            **allowed_fields
         )
 
-    @staticmethod
-    def update_goal(goal, validated_data):
-        for field, value in validated_data.items():
-            setattr(goal, field, value)
-
-        goal.save()
         return goal
 
+
+    # -----------------------------------------
+    # UPDATE GOAL
+    # -----------------------------------------
     @staticmethod
+    @transaction.atomic
+    def update_goal(goal, validated_data):
+
+        # Only allow safe fields to be updated
+        allowed_update_fields = [
+            "name",
+            "target_amount",
+            "start_date",
+            "end_date",
+        ]
+
+        for field in allowed_update_fields:
+
+            if field in validated_data:
+                setattr(goal, field, validated_data[field])
+
+        goal.save(update_fields=allowed_update_fields)
+
+        return goal
+
+
+    # -----------------------------------------
+    # SOFT DELETE GOAL
+    # -----------------------------------------
+    @staticmethod
+    @transaction.atomic
     def soft_delete_goal(goal):
+
+        if not goal.is_active:
+            raise ValidationError("Goal is already inactive.")
+
         goal.is_active = False
         goal.status = SavingsGoal.Status.CANCELLED
-        goal.save()
+
+        goal.save(update_fields=["is_active", "status"])
+
         return goal
 
 
@@ -161,27 +214,77 @@ class SavingsGoalService:
     @staticmethod
     def get_goal_summary(goal):
 
-        total_saved = SavingsGoalService.get_total_saved(goal)
+        today = timezone.now().date()
 
-        remaining_amount = SavingsGoalService.get_remaining_amount(goal)
+        # -----------------------------------
+        # TOTAL SAVED
+        # -----------------------------------
 
-        monthly_target = SavingsGoalService.calculate_monthly_target(goal)
+        total_saved = SavingsEntry.objects.filter(
+            goal=goal,
+            user=goal.user,
+            is_active=True
+        ).aggregate(
+            total=Sum("amount")
+        )["total"] or Decimal("0")
 
-        saved_this_month = SavingsGoalService.get_saved_this_month(goal)
+        # -----------------------------------
+        # SAVED THIS MONTH
+        # -----------------------------------
 
-        total_progress = SavingsGoalService.get_total_progress_percentage(goal)
+        saved_this_month = SavingsEntry.objects.filter(
+            goal=goal,
+            user=goal.user,
+            is_active=True,
+            date__year=today.year,
+            date__month=today.month
+        ).aggregate(
+            total=Sum("amount")
+        )["total"] or Decimal("0")
 
-        monthly_progress = SavingsGoalService.get_monthly_progress_percentage(goal)
+        # -----------------------------------
+        # REMAINING
+        # -----------------------------------
 
-        status = SavingsGoalService.get_goal_status(goal)
+        remaining_amount = goal.target_amount - total_saved
+
+        # -----------------------------------
+        # MONTH CALCULATION
+        # -----------------------------------
+
+        total_months = max(
+            1,
+            (goal.end_date.year - goal.start_date.year) * 12 +
+            (goal.end_date.month - goal.start_date.month)
+        )
+
+        monthly_target = goal.target_amount / Decimal(total_months)
+
+        # -----------------------------------
+        # PROGRESS CALCULATIONS
+        # -----------------------------------
+
+        total_progress_percentage = Decimal("0")
+        if goal.target_amount > 0:
+            total_progress_percentage = (
+                total_saved / goal.target_amount
+            ) * 100
+
+        monthly_progress_percentage = Decimal("0")
+        if monthly_target > 0:
+            monthly_progress_percentage = (
+                saved_this_month / monthly_target
+            ) * 100
+
+        # -----------------------------------
+        # COMPLETION STATUS
+        # -----------------------------------
+
         is_completed = total_saved >= goal.target_amount
 
-
         return {
-
             "goal_id": goal.id,
             "goal_name": goal.name,
-
             "target_amount": goal.target_amount,
 
             "total_saved": total_saved,
@@ -192,12 +295,18 @@ class SavingsGoalService:
 
             "saved_this_month": saved_this_month,
 
-            "total_progress_percentage": total_progress,
+            "total_progress_percentage": round(
+                total_progress_percentage, 2
+            ),
 
-            "monthly_progress_percentage": monthly_progress,
+            "monthly_progress_percentage": round(
+                monthly_progress_percentage, 2
+            ),
 
-            "status": status,
-            "is_completed": is_completed,   # ADD THIS LINE
+            "is_completed": is_completed,
+
+            "status": "COMPLETED" if is_completed else goal.status,
+
             "start_date": goal.start_date,
             "end_date": goal.end_date,
         }

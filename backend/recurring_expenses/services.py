@@ -1,4 +1,5 @@
 from datetime import date
+from django.db import transaction
 
 from recurring_expenses.models import RecurringExpense
 from expenses.models import Expense
@@ -9,10 +10,15 @@ def generate_recurring_expenses():
     today = date.today()
 
     recurring_expenses = RecurringExpense.objects.filter(
-        is_active=True
+        is_active=True,
+        user__isnull=False   # PROTECTION
     )
 
     for recurring in recurring_expenses:
+
+        # Extra safety check
+        if not recurring.user:
+            continue
 
         last = recurring.last_generated_date
 
@@ -22,34 +28,33 @@ def generate_recurring_expenses():
             should_generate = True
 
         elif recurring.frequency == "MONTHLY":
-            if today.month != last.month or today.year != last.year:
-                should_generate = True
+            should_generate = (
+                today.year != last.year or today.month != last.month
+            )
 
         elif recurring.frequency == "YEARLY":
-            if today.year != last.year:
-                should_generate = True
+            should_generate = today.year != last.year
 
         elif recurring.frequency == "WEEKLY":
-            if (today - last).days >= 7:
-                should_generate = True
+            should_generate = (today - last).days >= 7
 
         elif recurring.frequency == "DAILY":
-            if today != last:
-                should_generate = True
-
+            should_generate = today != last
 
         if should_generate:
 
-            Expense.objects.create(
-                user=recurring.user,
-                amount=recurring.amount,
-                category=recurring.category,
-                payment_method=recurring.payment_method,
-                description=f"{recurring.title} (Recurring)",
-                date=today,
-                recurring_expense=recurring,
-                source="RECURRING"
-            )
+            with transaction.atomic():
 
-            recurring.last_generated_date = today
-            recurring.save()
+                Expense.objects.create(
+                    user=recurring.user,
+                    amount=recurring.amount,
+                    category=recurring.category,
+                    payment_method=recurring.payment_method,
+                    description=f"{recurring.title} (Recurring)",
+                    date=today,
+                    recurring_expense=recurring,
+                    source="RECURRING"
+                )
+
+                recurring.last_generated_date = today
+                recurring.save(update_fields=["last_generated_date"])

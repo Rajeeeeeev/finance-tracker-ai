@@ -55,3 +55,8 @@ class RecurringExpense(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.amount} - {self.user.username}"
+    
+    def save(self, *args, **kwargs):
+        if not self.user_id:
+            raise ValueError("RecurringExpense must have a user")
+        super().save(*args, **kwargs)
