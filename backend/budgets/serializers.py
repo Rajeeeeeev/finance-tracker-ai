@@ -18,6 +18,7 @@ class BudgetSerializer(serializers.ModelSerializer):
         ]
 
         read_only_fields = [
+            "user"
             "id",
             "created_at",
             "updated_at",

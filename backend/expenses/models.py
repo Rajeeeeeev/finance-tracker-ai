@@ -50,6 +50,7 @@ class Expense(models.Model):
     description = models.CharField(max_length=255, blank=True, null=True)
 
     date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
     recurring_expense = models.ForeignKey(
         "recurring_expenses.RecurringExpense",
@@ -73,7 +74,6 @@ class Expense(models.Model):
         related_name="expenses"
     )
 
-    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.user.username} - {self.amount} - {self.category}"

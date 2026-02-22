@@ -174,6 +174,8 @@ class SavingsGoalService:
         monthly_progress = SavingsGoalService.get_monthly_progress_percentage(goal)
 
         status = SavingsGoalService.get_goal_status(goal)
+        is_completed = total_saved >= goal.target_amount
+
 
         return {
 
@@ -195,7 +197,7 @@ class SavingsGoalService:
             "monthly_progress_percentage": monthly_progress,
 
             "status": status,
-
+            "is_completed": is_completed,   # ADD THIS LINE
             "start_date": goal.start_date,
             "end_date": goal.end_date,
         }

@@ -110,7 +110,7 @@ class SavingsGoalSummarySerializer(serializers.Serializer):
         max_digits=6,
         decimal_places=2
     )
-
+    is_completed = serializers.BooleanField()    
     status = serializers.CharField()
 
     start_date = serializers.DateField()
