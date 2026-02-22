@@ -44,7 +44,10 @@ INSTALLED_APPS = [
     'income',
     'investments',
     'savings',
-    'liabilities'
+    'liabilities',
+    'budgets',
+    'bill_reminders',
+    'recurring_expenses',
 
 ]
 
