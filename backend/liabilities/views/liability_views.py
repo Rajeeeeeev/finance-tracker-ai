@@ -2,10 +2,11 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import ValidationError
 
 from liabilities.models import Liability
 from liabilities.serializers import LiabilitySerializer
-from liabilities.services.liability_service import LiabilityService
+from liabilities.services.liability_service import LiabilityCloseService, LiabilityService
 
 
 # -----------------------------------------
@@ -92,17 +93,17 @@ class LiabilityUpdateAPIView(APIView):
     def put(self, request, liability_id):
 
         try:
-
             liability = Liability.objects.get(
                 id=liability_id,
                 user=request.user,
                 is_active=True
             )
-
         except Liability.DoesNotExist:
-
             return Response(
-                {"error": "Liability not found"},
+                {
+                    "success": False,
+                    "message": "Liability not found"
+                },
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -112,18 +113,36 @@ class LiabilityUpdateAPIView(APIView):
             partial=True
         )
 
-        if serializer.is_valid():
+        serializer.is_valid(raise_exception=True)
+
+        # ✅ Catch service layer validation error
+        try:
 
             liability = LiabilityService.update_liability(
                 liability,
                 serializer.validated_data
             )
 
+        except ValidationError as e:
+
             return Response(
-                LiabilitySerializer(liability).data
+                {
+                    "success": False,
+                    "message": str(e.detail[0])
+                },
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-        return Response(serializer.errors)
+        return Response({
+            "success": True,
+            "message": "Liability updated successfully",
+            "liability_id": liability.id,
+            "name": liability.name,
+            "emi_amount": liability.emi_amount,
+            "remaining_principal": liability.remaining_principal,
+            "remaining_months": liability.remaining_months,
+            "end_date": liability.end_date
+        })
 
 
 # -----------------------------------------
@@ -204,3 +223,35 @@ class LiabilityDetailAPIView(APIView):
         serializer = LiabilitySerializer(liability)
 
         return Response(serializer.data)
+    
+class EMIHistoryView(APIView):
+
+     permission_classes = [IsAuthenticated]
+
+     def get(self, request, liability_id):
+
+        data = LiabilityService.get_emi_history(
+            request.user,
+            liability_id
+        )
+
+        return Response(data)
+
+class LiabilityCloseAPIView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, liability_id):
+
+        liability = LiabilityCloseService.close_liability(
+            request.user,
+            liability_id
+        )
+
+        return Response({
+            "message": "Liability closed successfully",
+            "liability_id": liability.id,
+            "remaining_principal": liability.remaining_principal,
+            "is_active": liability.is_active,
+            "end_date": liability.end_date
+        })     

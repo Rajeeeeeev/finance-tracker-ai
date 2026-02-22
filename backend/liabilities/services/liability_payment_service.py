@@ -1,6 +1,8 @@
 from decimal import Decimal
 from datetime import date
 
+from django.forms import ValidationError
+
 from liabilities.models import LiabilityPayment
 from expenses.models import Expense
 
@@ -24,7 +26,7 @@ class LiabilityPaymentService:
         ).exists()
 
         if existing_payment:
-            raise Exception("EMI already paid this month")
+            raise ValidationError("EMI already paid this month")
 
         emi_amount = liability.emi_amount
 

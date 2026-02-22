@@ -115,17 +115,21 @@ class Investment(models.Model):
 
     def save(self, *args, **kwargs):
 
-        # detect invested amount change
+        # Detect invested amount / current amount changes and update timestamps
         if self.pk:
-            old = Investment.objects.get(pk=self.pk)
+            try:
+                old = Investment.objects.get(pk=self.pk)
 
-            if old.invested_amount != self.invested_amount:
-                self.invested_amount_updated_at = timezone.now()
+                if old.invested_amount != self.invested_amount:
+                    self.invested_amount_updated_at = timezone.now()
 
-            if old.current_amount != self.current_amount:
-                self.current_amount_updated_at = timezone.now()
+                if old.current_amount != self.current_amount:
+                    self.current_amount_updated_at = timezone.now()
 
-        # calculate profit/loss
+            except Investment.DoesNotExist:
+                pass
+
+        # Automatically calculate profit/loss before saving
         self.calculate_profit_loss()
 
         super().save(*args, **kwargs)

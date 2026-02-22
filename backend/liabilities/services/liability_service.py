@@ -1,6 +1,11 @@
 from decimal import Decimal
+from time import timezone
+from django.db import transaction
 from django.db.models import Sum
+from rest_framework.exceptions import ValidationError
+from django.shortcuts import get_object_or_404
 
+from expenses.models import Expense
 from liabilities.models import Liability
 from liabilities.services.emi_service import EMIService
 
@@ -93,6 +98,11 @@ class LiabilityService:
 
     @staticmethod
     def update_liability(liability, validated_data):
+        
+        if liability.remaining_principal < liability.principal_amount:
+            raise ValidationError(
+                "Cannot modify loan after EMI payments started"
+            )
 
         liability.name = validated_data.get(
             "name",
@@ -119,9 +129,9 @@ class LiabilityService:
             liability.start_date
         )
 
-        principal = liability.principal_amount
+        principal = liability.remaining_principal or liability.principal_amount
         interest_rate = liability.interest_rate
-        tenure_months = liability.tenure_months
+        tenure_months = liability.remaining_months or liability.tenure_months
         start_date = liability.start_date
 
         emi = EMIService.calculate_emi(
@@ -156,9 +166,7 @@ class LiabilityService:
         liability.end_date = end_date
         liability.remaining_months = remaining_months
 
-        liability.save()
-
-        return liability
+        
 
 
     # -----------------------------------------
@@ -268,3 +276,89 @@ class LiabilityService:
             "total_monthly_emi": total_emi,
             "liabilities": summary
         }
+
+    @staticmethod
+    def get_emi_history(user, liability_id):
+
+        liability = get_object_or_404(
+            Liability,
+            id=liability_id,
+            user=user
+        )
+
+        emi_expenses = (
+         Expense.objects
+            .filter(
+                user=user,
+                liability=liability,
+                source="EMI"
+            )
+            .order_by("-date")
+        )
+
+        history = []
+
+        for expense in emi_expenses:
+            history.append({
+                "expense_id": expense.id,
+                "amount": expense.amount,
+                "date": expense.date,
+                "description": expense.description,
+                "created_at": expense.created_at
+            })
+
+        return {
+       
+            "liability_id": liability.id,
+
+            "name": liability.name,
+
+            "liability_type": liability.liability_type,
+
+            "principal_amount": liability.principal_amount,
+
+            "interest_rate": liability.interest_rate,
+
+            "emi_amount": liability.emi_amount,
+
+            "remaining_principal": liability.remaining_principal,
+
+            "remaining_months": liability.remaining_months,
+
+            "total_payable": liability.total_payable,
+
+            "total_interest": liability.total_interest,
+
+            "start_date": liability.start_date,
+
+            "end_date": liability.end_date,
+
+            "emi_history": history
+        }
+class LiabilityCloseService:
+
+    @staticmethod
+    @transaction.atomic
+    def close_liability(user, liability_id):
+
+        liability = get_object_or_404(
+            Liability,
+            id=liability_id,
+            user=user,
+            is_active=True
+        )
+
+        if liability.remaining_principal == 0:
+            raise Exception("Loan already closed")
+
+        liability.remaining_principal = 0
+
+        liability.remaining_months = 0
+
+        liability.is_active = False
+
+        liability.end_date = timezone.now().date()
+
+        liability.save()
+
+        return liability    

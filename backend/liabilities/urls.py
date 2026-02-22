@@ -1,6 +1,7 @@
 from django.urls import path
 
 from liabilities.views.liability_views import (
+    LiabilityCloseAPIView,
     LiabilityCreateAPIView,
     LiabilityListAPIView,
     LiabilityUpdateAPIView,
@@ -12,11 +13,10 @@ from liabilities.views.liability_views import (
 from liabilities.views.liability_summary_views import (
     LiabilitySummaryAPIView,
 )
-from liabilities.views.liability_payment_views import LiabilityPaymentCreateAPIView
 from liabilities.views.liability_payment_views import (
-    LiabilityPaymentCreateAPIView
+    LiabilityPaymentCreateAPIView,
 )
-
+from liabilities.views.liability_views import EMIHistoryView
 
 urlpatterns = [
 
@@ -35,4 +35,14 @@ urlpatterns = [
     path("<int:liability_id>/payments/", LiabilityPaymentHistoryAPIView.as_view()),
 
     path("summary/", LiabilitySummaryAPIView.as_view()),
+
+    path(
+    "<int:liability_id>/emi-history/",
+    EMIHistoryView.as_view(),
+    name="emi-history"
+),
+path(
+    "<int:liability_id>/close/",
+    LiabilityCloseAPIView.as_view(),
+),
 ]
