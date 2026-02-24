@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'budgets',
     'bill_reminders',
     'recurring_expenses',
+    'financial_summary',
 
 ]
 
