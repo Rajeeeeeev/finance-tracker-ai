@@ -1,4 +1,6 @@
 from decimal import Decimal
+from datetime import date
+import calendar
 from django.db.models import Sum, Q
 from django.utils import timezone
 
@@ -11,17 +13,54 @@ from investments.models import Investment
 from bill_reminders.models import BillReminder
 
 
-def get_date_filter(period):
-    if period == "all":
-        return None, None
+def get_date_filter(start_date=None, end_date=None, year=None, month=None):
+
     today = timezone.now().date()
+
+    # OPTION 1: Custom date range
+    if start_date and end_date:
+
+        # Convert only if string
+        if isinstance(start_date, str):
+            start = date.fromisoformat(start_date)
+        else:
+            start = start_date
+
+        if isinstance(end_date, str):
+            end = date.fromisoformat(end_date)
+        else:
+            end = end_date
+
+        # Prevent future dates
+        if end > today:
+            end = today
+
+        return start, end
+
+    # OPTION 2: Specific month
+    if year and month:
+
+        year = int(year)
+        month = int(month)
+
+        start = date(year, month, 1)
+
+        last_day = calendar.monthrange(year, month)[1]
+        end = date(year, month, last_day)
+
+        if year == today.year and month == today.month:
+            end = today
+
+        return start, end
+
+    # OPTION 3: Default current month
     start = today.replace(day=1)
-    return start, today
+    end = today
 
+    return start, end
 
-def get_financial_summary(user_id, period="monthly"):
-
-    start, end = get_date_filter(period)
+def get_financial_summary(user_id, start_date=None, end_date=None):
+    start, end = get_date_filter(start_date=start_date, end_date=end_date)
 
     def date_range(field):
         if start and end:
@@ -51,6 +90,16 @@ def get_financial_summary(user_id, period="monthly"):
         date_range("payment_date"), user_id=user_id
     ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
 
+    investment_data = Investment.objects.filter(
+    user_id=user_id,
+    is_active=True
+).aggregate(
+    invested=Sum("invested_amount"),
+    current=Sum("current_amount")
+)
+
+    total_invested = investment_data["invested"] or Decimal("0")
+    total_investment_current = investment_data["current"] or Decimal("0")
     total_invested = Investment.objects.filter(
         user_id=user_id, is_active=True
     ).aggregate(total=Sum("invested_amount"))["total"] or Decimal("0")
@@ -63,12 +112,11 @@ def get_financial_summary(user_id, period="monthly"):
     pending = bills_qs.filter(is_paid=False)
 
     net_balance = (
-        total_income
-        - total_expenses
-        - total_recurring
-        - total_liability_payments
-        - total_savings
-    )
+    total_income
+    - total_expenses
+    - total_recurring
+    - total_liability_payments
+)
 
     # Net worth
     total_remaining_principal = Liability.objects.filter(
@@ -76,7 +124,12 @@ def get_financial_summary(user_id, period="monthly"):
         is_active=True
     ).aggregate(total=Sum("remaining_principal"))["total"] or Decimal("0")
 
-    net_worth = total_invested + total_savings - total_remaining_principal
+    net_worth = (
+    net_balance
+    + total_savings
+    + total_investment_current
+    - total_remaining_principal
+)
 
     # Net balance message
     if net_balance < Decimal("0"):
@@ -87,14 +140,15 @@ def get_financial_summary(user_id, period="monthly"):
         message = "✅ You are in a good financial position this month."
 
     return {
-        "period": period,
+        "period": f"{start} to {end}" if start and end else "Custom Period",
         "message": message,
         "total_income": total_income,
         "total_expenses": total_expenses,
         "total_recurring_expenses": total_recurring,
         "total_savings": total_savings,
         "total_liability_payments": total_liability_payments,
-        "total_investments": total_invested,
+        "total_invested": total_invested,
+        "total_investment_current_value": total_investment_current,
         "bills": {
             "paid_count": paid.count(),
             "paid_amount": paid.aggregate(total=Sum("amount"))["total"] or Decimal("0"),
