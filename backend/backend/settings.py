@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'bill_reminders',
     'recurring_expenses',
     'financial_summary',
+    'corsheaders',
 
 ]
 
@@ -60,6 +61,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -172,3 +175,5 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
 }
+
+CORS_ALLOW_ALL_ORIGINS = True
