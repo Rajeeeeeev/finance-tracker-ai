@@ -1,9 +1,9 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
-from datetime import date
 
 from .models import Expense
 from .serializers import ExpenseSerializer
@@ -16,13 +16,17 @@ from recurring_expenses.services import generate_recurring_expenses
 
 class AddExpenseView(APIView):
 
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
 
-        serializer = ExpenseSerializer(data=request.data)
+        data = request.data.copy()
+        data['user'] = request.user.id
+
+        serializer = ExpenseSerializer(data=data)
 
         if serializer.is_valid():
             serializer.save()
-
             return Response(
                 {"message": "Expense added successfully"},
                 status=status.HTTP_201_CREATED
@@ -37,17 +41,14 @@ class AddExpenseView(APIView):
 
 class ExpenseListView(APIView):
 
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
 
         generate_recurring_expenses()
 
-        user_id = request.query_params.get("user")
-
-        if not user_id:
-            return Response({"error": "user parameter required"}, status=400)
-
         expenses = Expense.objects.filter(
-            user_id=user_id
+            user=request.user
         ).order_by("-date")
 
         serializer = ExpenseSerializer(expenses, many=True)
@@ -61,10 +62,12 @@ class ExpenseListView(APIView):
 
 class UpdateExpenseView(APIView):
 
+    permission_classes = [IsAuthenticated]
+
     def put(self, request, expense_id):
 
         try:
-            expense = Expense.objects.get(id=expense_id)
+            expense = Expense.objects.get(id=expense_id, user=request.user)
 
         except Expense.DoesNotExist:
             return Response({"error": "Expense not found"}, status=404)
@@ -88,12 +91,13 @@ class UpdateExpenseView(APIView):
 
 class DeleteExpenseView(APIView):
 
+    permission_classes = [IsAuthenticated]
+
     def delete(self, request, expense_id):
 
         try:
-            expense = Expense.objects.get(id=expense_id)
+            expense = Expense.objects.get(id=expense_id, user=request.user)
             expense.delete()
-
             return Response({"message": "Deleted successfully"})
 
         except Expense.DoesNotExist:
@@ -106,14 +110,12 @@ class DeleteExpenseView(APIView):
 
 class DashboardView(APIView):
 
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
 
-        user_id = request.query_params.get("user")
-
-        expenses = Expense.objects.filter(user_id=user_id)
-
+        expenses = Expense.objects.filter(user=request.user)
         total = expenses.aggregate(total=Sum("amount"))["total"] or 0
-
         return Response({"total_expense": total})
 
 
@@ -123,13 +125,13 @@ class DashboardView(APIView):
 
 class MonthlyExpenseSummaryView(APIView):
 
-    def get(self, request):
+    permission_classes = [IsAuthenticated]
 
-        user_id = request.query_params.get("user")
+    def get(self, request):
 
         monthly = (
             Expense.objects
-            .filter(user_id=user_id)
+            .filter(user=request.user)
             .annotate(month=TruncMonth("date"))
             .values("month")
             .annotate(total=Sum("amount"))
