@@ -73,7 +73,13 @@ class Expense(models.Model):
         blank=True,
         related_name="expenses"
     )
-
+    credit_card = models.ForeignKey(
+        "credit_cards.CreditCard",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="expenses"
+    )
 
     def __str__(self):
         return f"{self.user.username} - {self.amount} - {self.category}"

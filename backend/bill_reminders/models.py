@@ -49,6 +49,18 @@ class BillReminder(models.Model):
 
     updated_at = models.DateTimeField(auto_now=True)
 
+    # ← NEW: links reminder to a credit card (null for all non-card reminders)
+    related_credit_card = models.ForeignKey(
+        "credit_cards.CreditCard",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="bill_reminders"
+    )
+
+    # ← NEW: optional notes for auto-generated reminders
+    notes = models.TextField(blank=True, null=True)
+
     class Meta:
         db_table = "bill_reminders"
         ordering = ["due_date"]

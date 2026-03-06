@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'budgets',
     'bill_reminders',
     'recurring_expenses',
+    'credit_cards',
     'financial_summary',
     'corsheaders',
 

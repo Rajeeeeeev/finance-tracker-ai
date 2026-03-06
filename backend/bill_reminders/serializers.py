@@ -20,6 +20,8 @@ class BillReminderSerializer(serializers.ModelSerializer):
             "expense_created",
             "created_at",
             "updated_at",
+            "related_credit_card",  # ← NEW
+            "notes",                # ← NEW
         ]
 
         read_only_fields = [
@@ -27,8 +29,9 @@ class BillReminderSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "expense_created",
+            "related_credit_card",  # ← auto-set by system, not user
+            "notes",                # ← auto-set by system, not user
         ]
-
 
     def validate(self, data):
 

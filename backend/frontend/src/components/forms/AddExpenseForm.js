@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "../ui";
+import { creditCardService } from "../../services/creditCardService";
 
 const CATEGORIES = [
   "Food","Travel","Shopping","Bills","Entertainment",
@@ -12,12 +13,22 @@ const PAYMENT_METHODS = [
 
 const INITIAL = {
   category: "", amount: "", date: "",
-  payment_method: "UPI", description: "",
+  payment_method: "UPI", description: "", credit_card: "",
 };
 
 const AddExpenseForm = ({ onSubmit, onCancel, submitting }) => {
-  const [form, setForm] = useState(INITIAL);
-  const [error, setError] = useState("");
+  const [form, setForm]       = useState(INITIAL);
+  const [error, setError]     = useState("");
+  const [cards, setCards]     = useState([]);
+
+  // Fetch credit cards only when Credit Card is selected
+  useEffect(() => {
+    if (form.payment_method === "Credit Card" && cards.length === 0) {
+      creditCardService.getAll()
+        .then((res) => setCards(res.data))
+        .catch(() => setCards([]));
+    }
+  }, [form.payment_method]);
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
@@ -30,16 +41,26 @@ const AddExpenseForm = ({ onSubmit, onCancel, submitting }) => {
       return;
     }
 
+    if (form.payment_method === "Credit Card" && !form.credit_card) {
+      setError("Please select which credit card you used.");
+      return;
+    }
+
     const payload = {
-      amount: parseFloat(form.amount),
-      category: form.category,
+      amount:         parseFloat(form.amount),
+      category:       form.category,
       payment_method: form.payment_method,
-      date: form.date,
-      source: "MANUAL",
+      date:           form.date,
+      source:         "MANUAL",
     };
 
     if (form.description && form.description.trim() !== "") {
       payload.description = form.description.trim();
+    }
+
+    // Only include credit_card if Credit Card was selected
+    if (form.payment_method === "Credit Card" && form.credit_card) {
+      payload.credit_card = parseInt(form.credit_card);
     }
 
     const result = await onSubmit(payload);
@@ -68,6 +89,24 @@ const AddExpenseForm = ({ onSubmit, onCancel, submitting }) => {
           </select>
         </div>
       </div>
+
+      {/* Credit card selector — only shows when Credit Card is selected */}
+      {form.payment_method === "Credit Card" && (
+        <div style={fieldGroup}>
+          <label style={labelStyle}>Select Credit Card</label>
+          <select value={form.credit_card} onChange={set("credit_card")}>
+            <option value="">Choose a card...</option>
+            {cards.length === 0 && (
+              <option disabled>No cards added yet — add one in Credit Cards page</option>
+            )}
+            {cards.map((card) => (
+              <option key={card.id} value={card.id}>
+                {card.card_name} ****{card.last_four_digits} ({card.bank_name})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div style={fieldGroup}>
@@ -109,7 +148,6 @@ const AddExpenseForm = ({ onSubmit, onCancel, submitting }) => {
 };
 
 const fieldGroup = { display: "flex", flexDirection: "column", gap: 6 };
-
 const labelStyle = {
   fontSize: 11, fontWeight: 600, color: "var(--text-secondary)",
   fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.06em",

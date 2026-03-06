@@ -38,24 +38,47 @@ class MarkReminderPaidView(APIView):
 
     def put(self, request, reminder_id):
 
-        reminder = BillReminder.objects.get(id=reminder_id)
+        try:
+            reminder = BillReminder.objects.get(id=reminder_id)
+        except BillReminder.DoesNotExist:
+            return Response({"error": "Reminder not found"}, status=404)
 
         reminder.is_paid = True
         reminder.expense_created = True
         reminder.save()
 
+        # ── Build expense description ─────────────────────────────────────────
+        # If this reminder is linked to a credit card, use card details in
+        # the description and link the expense back to the card too.
+        if reminder.related_credit_card:
+            card = reminder.related_credit_card
+            description = f"{card.card_name} ****{card.last_four_digits} Credit Card Bill"
+            credit_card = card
+            payment_method = "Bank Transfer"  # credit card bills are usually paid via bank transfer
+        else:
+            description = reminder.title
+            credit_card = None
+            payment_method = "UPI"
+
+        # ── Create the expense entry ──────────────────────────────────────────
         Expense.objects.create(
             user=reminder.user,
             amount=reminder.amount,
             category="Bills",
-            payment_method="UPI",
-            description=reminder.title,
+            payment_method=payment_method,
+            description=description,
             date=date.today(),
-            source="BILL"
+            source="BILL",
+            credit_card=credit_card,   # None for regular bills, card for CC bills
         )
 
-        return Response({"message": "Marked paid"})
-    
+        return Response({
+            "message": "Marked paid",
+            "expense_created": True,
+            "description": description,
+        })
+
+
 class OverdueReminderView(APIView):
 
     def get(self, request):
@@ -82,9 +105,6 @@ class OverdueReminderView(APIView):
         )
 
 
-from datetime import timedelta
-
-
 def calculate_next_due_date(current_due_date, frequency):
 
     if frequency == "DAILY":
@@ -100,6 +120,7 @@ def calculate_next_due_date(current_due_date, frequency):
         return current_due_date + timedelta(days=365)
 
     return None
+
 
 class UpdateBillReminderView(APIView):
 
