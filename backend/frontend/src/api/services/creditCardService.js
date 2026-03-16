@@ -1,4 +1,4 @@
-import client from "./client"; // your existing axios client
+import client from "../client"; // your existing axios client
 
 export const creditCardService = {
   getAll:        ()       => client.get("/api/credit-cards/"),

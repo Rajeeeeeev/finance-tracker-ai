@@ -1,14 +1,15 @@
 import React from "react";
 
 const NAV_ITEMS = [
-  { icon: "▦",  label: "Dashboard",       path: "/"             },
-  { icon: "↗",  label: "Income",          path: "/income"       },
-  { icon: "↙",  label: "Expenses",        path: "/expenses"     },
-  { icon: "◎",  label: "Investments",     path: "/investments"  },
-  { icon: "⟳",  label: "Recurring",       path: "/recurring"    },
-  { icon: "🔔", label: "Bill Reminders",  path: "/bills"        },
-  { icon: "◈",  label: "Savings",         path: "/savings"      },
-  { icon: "⊕",  label: "Liabilities",     path: "/liabilities"  },
+  { icon: "▦", label: "Dashboard",     path: "/"             },
+  { icon: "↗", label: "Income",        path: "/income"       },
+  { icon: "↙", label: "Expenses",      path: "/expenses"     },
+  { icon: "◎", label: "Investments",   path: "/investments"  },
+  { icon: "★", label: "Credit Cards",  path: "/credit-cards" },
+  { icon: "⟳", label: "Recurring",     path: "/recurring"    },
+  { icon: "◉", label: "Bill Reminders",path: "/bills"        },
+  { icon: "◈", label: "Savings",       path: "/savings"      },
+  { icon: "⊕", label: "Liabilities",   path: "/liabilities"  },
 ];
 
 const Sidebar = ({ activePath = "/" }) => {
@@ -54,9 +55,9 @@ const Sidebar = ({ activePath = "/" }) => {
       <nav style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
         {NAV_ITEMS.map((item) => {
           const isActive = activePath === item.path;
-          return (
-            <a
-              key={item.label}
+          return (<a
+            
+              key={item.label} 
               href={item.path}
               style={{
                 display: "flex", alignItems: "center", gap: 10,

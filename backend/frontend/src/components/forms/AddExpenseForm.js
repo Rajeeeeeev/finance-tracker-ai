@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "../ui";
-import { creditCardService } from "../../services/creditCardService";
+import { creditCardService } from "../../api/services/creditCardService";
 
 const CATEGORIES = [
   "Food","Travel","Shopping","Bills","Entertainment",

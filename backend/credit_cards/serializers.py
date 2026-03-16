@@ -4,6 +4,7 @@ from expenses.models import Expense
 from decimal import Decimal
 from django.db.models import Sum
 import datetime
+import calendar
 
 
 class CreditCardSerializer(serializers.ModelSerializer):
@@ -24,13 +25,17 @@ class CreditCardSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at']
 
+    def _safe_replace_day(self, date, day):
+        max_day = calendar.monthrange(date.year, date.month)[1]
+        return date.replace(day=min(day, max_day))
+
     def _get_cycle_start(self, obj):
         today = datetime.date.today()
         if today.day >= obj.billing_date:
-            return today.replace(day=obj.billing_date)
+            return self._safe_replace_day(today, obj.billing_date)
         first      = today.replace(day=1)
         prev_month = first - datetime.timedelta(days=1)
-        return prev_month.replace(day=obj.billing_date)
+        return self._safe_replace_day(prev_month, obj.billing_date)
 
     def get_current_balance(self, obj):
         cycle_start = self._get_cycle_start(obj)

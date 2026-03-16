@@ -1,18 +1,25 @@
 import datetime
+import calendar
 from decimal import Decimal
 from django.db.models import Sum
 from .models import CreditCard
 from expenses.models import Expense
 
 
+def _safe_replace_day(date, day):
+    """Replace the day in a date, clamping to the last valid day of that month."""
+    max_day = calendar.monthrange(date.year, date.month)[1]
+    return date.replace(day=min(day, max_day))
+
+
 def get_billing_cycle_dates(card):
     today = datetime.date.today()
     if today.day >= card.billing_date:
-        cycle_start = today.replace(day=card.billing_date)
+        cycle_start = _safe_replace_day(today, card.billing_date)
     else:
         first       = today.replace(day=1)
         prev_month  = first - datetime.timedelta(days=1)
-        cycle_start = prev_month.replace(day=card.billing_date)
+        cycle_start = _safe_replace_day(prev_month, card.billing_date)
     due_date = cycle_start + datetime.timedelta(days=card.due_date_days)
     return cycle_start, due_date
 

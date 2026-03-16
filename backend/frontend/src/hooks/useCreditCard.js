@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { creditCardService } from "../services/creditCardService";
+import { creditCardService } from "../api/services/creditCardService";
 
 const useCreditCard = () => {
   const [cards, setCards]         = useState([]);
