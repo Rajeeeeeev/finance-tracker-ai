@@ -39,7 +39,10 @@ class CreditCardSerializer(serializers.ModelSerializer):
 
     def get_current_balance(self, obj):
         cycle_start = self._get_cycle_start(obj)
-        total = obj.expenses.filter(date__gte=cycle_start).aggregate(
+        # ✅ FIX: Convert date to datetime and use created_at instead of date
+        cycle_start_dt = datetime.datetime.combine(cycle_start, datetime.time.min)
+        
+        total = obj.expenses.filter(created_at__gte=cycle_start_dt).aggregate(
             total=Sum('amount')
         )['total'] or Decimal('0.00')
         return float(total)

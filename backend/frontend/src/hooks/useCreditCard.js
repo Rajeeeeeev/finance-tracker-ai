@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { creditCardService } from "../api/services/creditCardService";
 
 const useCreditCard = () => {
-  const [cards, setCards]         = useState([]);
-  const [summary, setSummary]     = useState(null);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState(null);
+  const [cards, setCards]           = useState([]);
+  const [summary, setSummary]       = useState(null);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   const fetchCards = useCallback(async () => {
@@ -16,8 +16,8 @@ const useCreditCard = () => {
         creditCardService.getAll(),
         creditCardService.getSummary(),
       ]);
-      setCards(cardsRes.data);
-      setSummary(summaryRes.data);
+      setCards(cardsRes);
+      setSummary(summaryRes);
     } catch (err) {
       setError("Failed to load credit cards.");
     } finally {
@@ -30,14 +30,11 @@ const useCreditCard = () => {
   const addCard = async (payload) => {
     setSubmitting(true);
     try {
-      const res = await creditCardService.create(payload);
+      await creditCardService.create(payload);
       await fetchCards();
-      return { success: true, data: res.data };
+      return { success: true };
     } catch (err) {
-      const msg = err.response?.data
-        ? Object.values(err.response.data).flat().join(" ")
-        : "Failed to add card.";
-      return { success: false, error: msg };
+      return { success: false, error: err.message || "Failed to add card." };
     } finally {
       setSubmitting(false);
     }

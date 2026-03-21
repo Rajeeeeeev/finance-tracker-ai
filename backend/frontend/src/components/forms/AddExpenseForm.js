@@ -17,18 +17,17 @@ const INITIAL = {
 };
 
 const AddExpenseForm = ({ onSubmit, onCancel, submitting }) => {
-  const [form, setForm]       = useState(INITIAL);
-  const [error, setError]     = useState("");
-  const [cards, setCards]     = useState([]);
+  const [form, setForm]   = useState(INITIAL);
+  const [error, setError] = useState("");
+  const [cards, setCards] = useState([]);
 
-  // Fetch credit cards only when Credit Card is selected
-  useEffect(() => {
+useEffect(() => {
     if (form.payment_method === "Credit Card" && cards.length === 0) {
       creditCardService.getAll()
-        .then((res) => setCards(res.data))
+        .then((res) => setCards(res))
         .catch(() => setCards([]));
     }
-  }, [form.payment_method]);
+  }, [form.payment_method, cards.length])
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
@@ -58,7 +57,6 @@ const AddExpenseForm = ({ onSubmit, onCancel, submitting }) => {
       payload.description = form.description.trim();
     }
 
-    // Only include credit_card if Credit Card was selected
     if (form.payment_method === "Credit Card" && form.credit_card) {
       payload.credit_card = parseInt(form.credit_card);
     }
@@ -90,7 +88,6 @@ const AddExpenseForm = ({ onSubmit, onCancel, submitting }) => {
         </div>
       </div>
 
-      {/* Credit card selector — only shows when Credit Card is selected */}
       {form.payment_method === "Credit Card" && (
         <div style={fieldGroup}>
           <label style={labelStyle}>Select Credit Card</label>

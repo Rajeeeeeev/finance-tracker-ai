@@ -61,7 +61,7 @@ class CreditCardExpensesView(APIView):
         expenses = Expense.objects.filter(credit_card=card, user=request.user)
 
         if month and year:
-            expenses = expenses.filter(date__month=month, date__year=year)
+            expenses = expenses.filter(created_at__month=month, created_at__year=year)
         else:
             today = datetime.date.today()
             if today.day >= card.billing_date:
@@ -70,9 +70,12 @@ class CreditCardExpensesView(APIView):
                 first       = today.replace(day=1)
                 prev_month  = first - datetime.timedelta(days=1)
                 cycle_start = prev_month.replace(day=card.billing_date)
-            expenses = expenses.filter(date__gte=cycle_start)
+            
+            # ✅ FIX: Use created_at instead of date
+            cycle_start_dt = datetime.datetime.combine(cycle_start, datetime.time.min)
+            expenses = expenses.filter(created_at__gte=cycle_start_dt)
 
-        serializer = CreditCardExpenseSerializer(expenses.order_by('-date'), many=True)
+        serializer = CreditCardExpenseSerializer(expenses.order_by('-created_at'), many=True)
         return Response({
             'card':     card.card_name,
             'expenses': serializer.data,

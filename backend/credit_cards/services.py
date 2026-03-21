@@ -26,10 +26,13 @@ def get_billing_cycle_dates(card):
 
 def get_card_summary(card):
     cycle_start, due_date = get_billing_cycle_dates(card)
+    
+    # ✅ FIX: Convert date to datetime and use created_at instead of date
+    cycle_start_dt = datetime.datetime.combine(cycle_start, datetime.time.min)
 
     expenses = Expense.objects.filter(
         credit_card=card,
-        date__gte=cycle_start
+        created_at__gte=cycle_start_dt
     )
 
     current_balance = expenses.aggregate(
@@ -65,9 +68,17 @@ def auto_create_bill_reminder(card, user):
     """Auto-creates a bill reminder when a card is added."""
     from bill_reminders.models import BillReminder
 
-    _, due_date = get_billing_cycle_dates(card)
+    cycle_start, due_date = get_billing_cycle_dates(card)
+    
+    # ✅ FIX: Calculate ACTUAL current balance instead of hardcoding 0
+    cycle_start_dt = datetime.datetime.combine(cycle_start, datetime.time.min)
+    
+    current_balance = Expense.objects.filter(
+        credit_card=card,
+        created_at__gte=cycle_start_dt
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
-    # Don't duplicate
+    # Don't duplicate reminders for the same due date
     if BillReminder.objects.filter(
         user=user,
         related_credit_card=card,
@@ -78,9 +89,10 @@ def auto_create_bill_reminder(card, user):
     BillReminder.objects.create(
         user=user,
         title=f"{card.card_name} ****{card.last_four_digits} Bill",
-        amount=0,           # will be ₹0 at creation, updated when expenses come in
+        amount=float(current_balance),  # ✅ Use actual calculated balance
         due_date=due_date,
         is_paid=False,
         related_credit_card=card,
-        notes=f"Auto-generated credit card bill reminder."
+        notes=f"Auto-generated credit card bill reminder.",
+        is_recurring=True  # ✅ Mark as recurring so next month's reminder is created
     )

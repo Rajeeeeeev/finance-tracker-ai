@@ -18,6 +18,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
             "source",
             "recurring_expense",
             "liability",
+            "credit_card",  # ✅ ADD THIS LINE
             "created_at",
         ]
 
