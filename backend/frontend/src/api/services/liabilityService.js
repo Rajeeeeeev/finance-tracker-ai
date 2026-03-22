@@ -1,25 +1,32 @@
 const baseURL = 'http://127.0.0.1:8000/api';
 
 const makeRequest = async (endpoint, method = 'GET', data = null) => {
-  try {
-    const token = localStorage.getItem('access_token');
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` })
-    };
+  const token = localStorage.getItem('access_token');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token && { 'Authorization': `Bearer ${token}` })
+  };
 
-    const options = { method, headers };
-    if (data) options.body = JSON.stringify(data);
+  const options = { method, headers };
+  if (data) options.body = JSON.stringify(data);
 
-    const response = await fetch(`${baseURL}${endpoint}`, options);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
-  } catch (error) {
-    throw new Error(error.message || 'API request failed');
+  const response = await fetch(`${baseURL}${endpoint}`, options);
+
+  if (response.status === 204) return null;
+
+  const json = await response.json();
+
+  if (!response.ok) {
+    const message = json?.error || json?.message ||
+      (typeof json === 'object' ? Object.values(json).flat().join(' ') : `Request failed: ${response.status}`);
+    throw new Error(message);
   }
+
+  return json;
 };
 
 export const liabilityService = {
+
   async getAll() {
     return await makeRequest('/liabilities/list/');
   },
@@ -32,17 +39,15 @@ export const liabilityService = {
     return await makeRequest(`/liabilities/${id}/delete/`, 'DELETE');
   },
 
-  async getPayments() {
-    // You may need to adjust this based on your actual endpoint
-    return await makeRequest('/liabilities/list/'); // or create a dedicated endpoint
+  async payEMI(liabilityId) {
+    return await makeRequest(`/liabilities/${liabilityId}/pay/`, 'POST');
   },
 
-  async createPayment(data) {
-    return await makeRequest(`/liabilities/${data.liability}/pay/`, 'POST', data);
+  async close(liabilityId) {
+    return await makeRequest(`/liabilities/${liabilityId}/close/`, 'POST');
   },
 
-  async deletePayment(id) {
-    // You may need to add this endpoint to your backend
-    return await makeRequest(`/liabilities/payments/${id}/delete/`, 'DELETE');
-  }
+  async getPaymentHistory(liabilityId) {
+    return await makeRequest(`/liabilities/${liabilityId}/payments/`);
+  },
 };

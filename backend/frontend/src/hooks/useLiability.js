@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { liabilityService } from '../api/services/liabilityService';
 
 export default function useLiability() {
   const [liabilities, setLiabilities] = useState([]);
-  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchLiabilities = async () => {
+  // FIXED: useCallback for stable reference (prevents useEffect ESLint warning)
+  const fetchLiabilities = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -19,45 +19,38 @@ export default function useLiability() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const fetchPayments = async () => {
-    try {
-      const data = await liabilityService.getPayments();
-      setPayments(Array.isArray(data) ? data : data.results || []);
-    } catch (err) {
-      setError(err.message || 'Failed to fetch payments');
-      setPayments([]);
-    }
-  };
+  }, []);
 
   const addLiability = async (liabilityData) => {
     try {
       const newLiability = await liabilityService.create(liabilityData);
-      setLiabilities([...liabilities, newLiability]);
-      return true;
+      setLiabilities(prev => [...prev, newLiability]);
+      return { success: true };
     } catch (err) {
       setError(err.message || 'Failed to create liability');
-      return false;
+      return { success: false, error: err.message };
     }
   };
 
-  const addPayment = async (paymentData) => {
+  // FIXED: payEMI calls the correct POST /<id>/pay/ endpoint
+  // Backend auto-calculates principal/interest split — no form needed
+  const payEMI = async (liabilityId) => {
     try {
-      const newPayment = await liabilityService.createPayment(paymentData);
-      setPayments([...payments, newPayment]);
-      return true;
+      const result = await liabilityService.payEMI(liabilityId);
+      // Refresh liabilities so remaining_principal and remaining_months update
+      await fetchLiabilities();
+      return { success: true, data: result };
     } catch (err) {
-      setError(err.message || 'Failed to create payment record');
-      return false;
+      const message = err.message || 'Failed to record EMI payment';
+      setError(message);
+      return { success: false, error: message };
     }
   };
 
   const deleteLiability = async (id) => {
     try {
       await liabilityService.delete(id);
-      setLiabilities(liabilities.filter(l => l.id !== id));
-      setPayments(payments.filter(p => p.liability !== id));
+      setLiabilities(prev => prev.filter(l => l.id !== id));
       return true;
     } catch (err) {
       setError(err.message || 'Failed to delete liability');
@@ -65,27 +58,27 @@ export default function useLiability() {
     }
   };
 
-  const deletePayment = async (id) => {
+  const closeLiability = async (id) => {
     try {
-      await liabilityService.deletePayment(id);
-      setPayments(payments.filter(p => p.id !== id));
-      return true;
+      const result = await liabilityService.close(id);
+      // Refresh so the closed loan moves to inactive
+      await fetchLiabilities();
+      return { success: true, data: result };
     } catch (err) {
-      setError(err.message || 'Failed to delete payment record');
-      return false;
+      const message = err.message || 'Failed to close liability';
+      setError(message);
+      return { success: false, error: message };
     }
   };
 
   return {
     liabilities,
-    payments,
     loading,
     error,
     fetchLiabilities,
-    fetchPayments,
     addLiability,
-    addPayment,
+    payEMI,
     deleteLiability,
-    deletePayment
+    closeLiability,
   };
 }

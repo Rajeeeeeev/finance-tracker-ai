@@ -1,7 +1,3 @@
-// ─── API ENDPOINTS ───────────────────────────────────────────────────────────
-// Single source of truth for all backend URLs.
-// Never hardcode endpoint strings in services or components.
-// ─────────────────────────────────────────────────────────────────────────────
 
 const ENDPOINTS = {
   // Auth

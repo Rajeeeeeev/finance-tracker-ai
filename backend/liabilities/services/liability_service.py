@@ -1,5 +1,5 @@
 from decimal import Decimal
-from time import timezone
+from django.utils import timezone  # FIXED: was 'from time import timezone'
 from django.db import transaction
 from django.db.models import Sum
 from rest_framework.exceptions import ValidationError
@@ -30,67 +30,32 @@ class LiabilityService:
             Liability.LiabilityType.OTHER
         )
 
-        # Calculate EMI
-        emi = EMIService.calculate_emi(
-            principal,
-            interest_rate,
-            tenure_months
-        )
-
-        # Calculate totals
-        total_payable = EMIService.calculate_total_payable(
-            emi,
-            tenure_months
-        )
-
-        total_interest = EMIService.calculate_total_interest(
-            total_payable,
-            principal
-        )
-
-        end_date = EMIService.calculate_end_date(
-            start_date,
-            tenure_months
-        )
-
-        remaining_months = EMIService.calculate_remaining_months(
-            start_date,
-            tenure_months
-        )
+        emi = EMIService.calculate_emi(principal, interest_rate, tenure_months)
+        total_payable = EMIService.calculate_total_payable(emi, tenure_months)
+        total_interest = EMIService.calculate_total_interest(total_payable, principal)
+        end_date = EMIService.calculate_end_date(start_date, tenure_months)
+        # FIXED: on creation remaining_months = full tenure, not calculated from today
+        # calculate_remaining_months returns 0 when start_date=today, causing new loan to appear closed
+        remaining_months = tenure_months
 
         liability = Liability.objects.create(
-
             user=user,
-
             name=name,
-
             liability_type=liability_type,
-
             principal_amount=principal,
-
             interest_rate=interest_rate,
-
             tenure_months=tenure_months,
-
             emi_amount=emi,
-
             total_payable=total_payable,
-
             total_interest=total_interest,
-
             remaining_principal=principal,
-
             start_date=start_date,
-
             end_date=end_date,
-
             remaining_months=remaining_months,
-
             is_active=True,
         )
 
         return liability
-
 
     # -----------------------------------------
     # UPDATE LIABILITY
@@ -98,67 +63,30 @@ class LiabilityService:
 
     @staticmethod
     def update_liability(liability, validated_data):
-        
+
         if liability.remaining_principal < liability.principal_amount:
             raise ValidationError(
                 "Cannot modify loan after EMI payments started"
             )
 
-        liability.name = validated_data.get(
-            "name",
-            liability.name
-        )
-
-        liability.liability_type = validated_data.get(
-            "liability_type",
-            liability.liability_type
-        )
-
-        liability.interest_rate = validated_data.get(
-            "interest_rate",
-            liability.interest_rate
-        )
-
-        liability.tenure_months = validated_data.get(
-            "tenure_months",
-            liability.tenure_months
-        )
-
-        liability.start_date = validated_data.get(
-            "start_date",
-            liability.start_date
-        )
+        liability.name = validated_data.get("name", liability.name)
+        liability.liability_type = validated_data.get("liability_type", liability.liability_type)
+        liability.interest_rate = validated_data.get("interest_rate", liability.interest_rate)
+        liability.tenure_months = validated_data.get("tenure_months", liability.tenure_months)
+        liability.start_date = validated_data.get("start_date", liability.start_date)
 
         principal = liability.remaining_principal or liability.principal_amount
         interest_rate = liability.interest_rate
         tenure_months = liability.remaining_months or liability.tenure_months
         start_date = liability.start_date
 
-        emi = EMIService.calculate_emi(
-            principal,
-            interest_rate,
-            tenure_months
-        )
-
-        total_payable = EMIService.calculate_total_payable(
-            emi,
-            tenure_months
-        )
-
-        total_interest = EMIService.calculate_total_interest(
-            total_payable,
-            principal
-        )
-
-        end_date = EMIService.calculate_end_date(
-            start_date,
-            tenure_months
-        )
-
-        remaining_months = EMIService.calculate_remaining_months(
-            start_date,
-            tenure_months
-        )
+        emi = EMIService.calculate_emi(principal, interest_rate, tenure_months)
+        total_payable = EMIService.calculate_total_payable(emi, tenure_months)
+        total_interest = EMIService.calculate_total_interest(total_payable, principal)
+        end_date = EMIService.calculate_end_date(start_date, tenure_months)
+        # FIXED: on creation remaining_months = full tenure, not calculated from today
+        # calculate_remaining_months returns 0 when start_date=today, causing new loan to appear closed
+        remaining_months = tenure_months
 
         liability.emi_amount = emi
         liability.total_payable = total_payable
@@ -166,8 +94,9 @@ class LiabilityService:
         liability.end_date = end_date
         liability.remaining_months = remaining_months
 
-        
+        liability.save()  # FIXED: was missing — updates were silently lost
 
+        return liability
 
     # -----------------------------------------
     # DELETE LIABILITY (SOFT DELETE)
@@ -175,12 +104,9 @@ class LiabilityService:
 
     @staticmethod
     def soft_delete_liability(liability):
-
         liability.is_active = False
         liability.save()
-
         return liability
-
 
     # -----------------------------------------
     # GET USER LIABILITIES
@@ -188,12 +114,11 @@ class LiabilityService:
 
     @staticmethod
     def get_user_liabilities(user):
-
+        # FIXED: return ALL liabilities (active + closed)
+        # Frontend handles active/closed filtering via tabs
         return Liability.objects.filter(
-            user=user,
-            is_active=True
-        ).order_by("end_date")
-
+            user=user
+        ).order_by("is_active", "end_date")
 
     # -----------------------------------------
     # TOTAL MONTHLY EMI
@@ -201,14 +126,11 @@ class LiabilityService:
 
     @staticmethod
     def get_total_monthly_emi(user):
-
         result = Liability.objects.filter(
             user=user,
             is_active=True
         ).aggregate(total=Sum("emi_amount"))
-
         return result["total"] or Decimal("0.00")
-
 
     # -----------------------------------------
     # TOTAL LIABILITY
@@ -216,14 +138,11 @@ class LiabilityService:
 
     @staticmethod
     def get_total_remaining_liability(user):
-
         result = Liability.objects.filter(
             user=user,
             is_active=True
         ).aggregate(total=Sum("remaining_principal"))
-
         return result["total"] or Decimal("0.00")
-
 
     # -----------------------------------------
     # LIABILITY SUMMARY
@@ -232,14 +151,10 @@ class LiabilityService:
     @staticmethod
     def get_liability_summary(user):
 
-        liabilities = Liability.objects.filter(
-            user=user,
-            is_active=True
-        )
+        liabilities = Liability.objects.filter(user=user, is_active=True)
 
         total_liability = Decimal("0.00")
         total_emi = Decimal("0.00")
-
         summary = []
 
         for liability in liabilities:
@@ -248,13 +163,11 @@ class LiabilityService:
             total_emi += liability.emi_amount
 
             progress = (
-                (liability.principal_amount -
-                 liability.remaining_principal)
+                (liability.principal_amount - liability.remaining_principal)
                 / liability.principal_amount
             ) * 100
 
             summary.append({
-
                 "id": liability.id,
                 "name": liability.name,
                 "principal_amount": liability.principal_amount,
@@ -267,11 +180,9 @@ class LiabilityService:
                 "end_date": liability.end_date,
                 "remaining_months": liability.remaining_months,
                 "progress_percentage": round(progress, 2),
-
             })
 
         return {
-
             "total_liability": total_liability,
             "total_monthly_emi": total_emi,
             "liabilities": summary
@@ -280,24 +191,15 @@ class LiabilityService:
     @staticmethod
     def get_emi_history(user, liability_id):
 
-        liability = get_object_or_404(
-            Liability,
-            id=liability_id,
-            user=user
-        )
+        liability = get_object_or_404(Liability, id=liability_id, user=user)
 
         emi_expenses = (
-         Expense.objects
-            .filter(
-                user=user,
-                liability=liability,
-                source="EMI"
-            )
+            Expense.objects
+            .filter(user=user, liability=liability, source="EMI")
             .order_by("-date")
         )
 
         history = []
-
         for expense in emi_expenses:
             history.append({
                 "expense_id": expense.id,
@@ -308,33 +210,22 @@ class LiabilityService:
             })
 
         return {
-       
             "liability_id": liability.id,
-
             "name": liability.name,
-
             "liability_type": liability.liability_type,
-
             "principal_amount": liability.principal_amount,
-
             "interest_rate": liability.interest_rate,
-
             "emi_amount": liability.emi_amount,
-
             "remaining_principal": liability.remaining_principal,
-
             "remaining_months": liability.remaining_months,
-
             "total_payable": liability.total_payable,
-
             "total_interest": liability.total_interest,
-
             "start_date": liability.start_date,
-
             "end_date": liability.end_date,
-
             "emi_history": history
         }
+
+
 class LiabilityCloseService:
 
     @staticmethod
@@ -345,20 +236,15 @@ class LiabilityCloseService:
             Liability,
             id=liability_id,
             user=user,
-            is_active=True
         )
 
-        if liability.remaining_principal == 0:
-            raise Exception("Loan already closed")
+        if not liability.is_active or liability.remaining_principal == 0:
+            raise Exception("Loan is already closed")
 
-        liability.remaining_principal = 0
-
+        liability.remaining_principal = Decimal("0.00")
         liability.remaining_months = 0
-
         liability.is_active = False
-
-        liability.end_date = timezone.now().date()
-
+        liability.end_date = timezone.now().date()  # FIXED: correct django timezone
         liability.save()
 
-        return liability    
+        return liability

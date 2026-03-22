@@ -1,7 +1,7 @@
 from decimal import Decimal
 from datetime import date
 
-from django.forms import ValidationError
+from rest_framework.exceptions import ValidationError  # FIXED: was django.forms.ValidationError
 
 from liabilities.models import LiabilityPayment
 from expenses.models import Expense
@@ -9,16 +9,15 @@ from expenses.models import Expense
 
 class LiabilityPaymentService:
 
-
     @staticmethod
     def make_payment(user, liability):
 
         if not liability.is_active:
-            raise Exception("Liability already completed")
+            raise ValidationError("Liability is already closed")
 
         today = date.today()
 
-        # Prevent duplicate EMI payment
+        # Prevent duplicate EMI payment this month
         existing_payment = LiabilityPayment.objects.filter(
             liability=liability,
             payment_date__year=today.year,
@@ -45,53 +44,35 @@ class LiabilityPaymentService:
             emi_amount - interest_component
         ).quantize(Decimal("0.01"))
 
-        # Create Expense FIRST
+        # Create Expense
         expense = Expense.objects.create(
-
             user=user,
-
             amount=emi_amount,
-
             category="Bills",
-
             payment_method="Bank Transfer",
-
             description=f"{liability.name} EMI",
-
             date=today,
-
             source="EMI",
-
             liability=liability
         )
 
         # Create EMI payment history
         payment = LiabilityPayment.objects.create(
-
             user=user,
-
             liability=liability,
-
             amount=emi_amount,
-
             payment_date=today,
-
             principal_component=principal_component,
-
             interest_component=interest_component,
-
             expense=expense
         )
 
         # Update liability balance
         liability.remaining_principal -= principal_component
-
         liability.remaining_months -= 1
 
         if liability.remaining_months <= 0:
-
             liability.remaining_principal = Decimal("0.00")
-
             liability.is_active = False
 
         liability.save()
