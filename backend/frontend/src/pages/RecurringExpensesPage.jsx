@@ -6,14 +6,49 @@ import AddRecurringExpenseForm from '../components/forms/AddRecurringExpenseForm
 
 const fmt = (n) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(n) || 0);
 
+// FIXED: keys must match backend UPPERCASE values from RecurringExpense.FREQUENCY_CHOICES
 const FREQUENCY_LABELS = {
-  'daily': 'Daily',
-  'weekly': 'Weekly',
-  'bi_weekly': 'Bi-weekly',
-  'monthly': 'Monthly',
-  'quarterly': 'Quarterly',
-  'semi_annual': 'Semi-annual',
-  'annual': 'Annual'
+  'DAILY':   'Daily',
+  'WEEKLY':  'Weekly',
+  'MONTHLY': 'Monthly',
+  'YEARLY':  'Yearly',
+};
+
+// FIXED: switch cases use UPPERCASE to match backend
+const getNextOccurrence = (lastGeneratedDate, frequency) => {
+  const base = lastGeneratedDate ? new Date(lastGeneratedDate) : new Date();
+  const next = new Date(base);
+
+  switch (frequency) {
+    case 'DAILY':
+      next.setDate(next.getDate() + 1);
+      break;
+    case 'WEEKLY':
+      next.setDate(next.getDate() + 7);
+      break;
+    case 'MONTHLY':
+      next.setMonth(next.getMonth() + 1);
+      break;
+    case 'YEARLY':
+      next.setFullYear(next.getFullYear() + 1);
+      break;
+    default:
+      return base;
+  }
+
+  return next;
+};
+
+// FIXED: frequency keys UPPERCASE for monthly estimate
+const getMonthlyEquivalent = (amount, frequency) => {
+  const amt = parseFloat(amount) || 0;
+  switch (frequency) {
+    case 'DAILY':   return amt * 30;
+    case 'WEEKLY':  return amt * 4.33;
+    case 'MONTHLY': return amt;
+    case 'YEARLY':  return amt / 12;
+    default:        return amt;
+  }
 };
 
 export default function RecurringExpensesPage() {
@@ -23,22 +58,18 @@ export default function RecurringExpensesPage() {
 
   useEffect(() => {
     fetchRecurringExpenses();
-  }, []);
+  }, [fetchRecurringExpenses]);
 
   const handleDelete = async (id) => {
-    if (window.confirm('Delete this recurring expense template?')) {
+    if (window.confirm('Delete this recurring expense template? This will NOT delete already-generated expenses.')) {
       const success = await deleteRecurringExpense(id);
-      if (success) {
-        await fetchRecurringExpenses();
-      }
+      if (success) await fetchRecurringExpenses();
     }
   };
 
   const handleToggleActive = async (id, currentStatus) => {
     const success = await toggleActive(id, !currentStatus);
-    if (success) {
-      await fetchRecurringExpenses();
-    }
+    if (success) await fetchRecurringExpenses();
   };
 
   const filtered = recurringExpenses.filter(re => {
@@ -48,62 +79,19 @@ export default function RecurringExpensesPage() {
   });
 
   const activeCount = recurringExpenses.filter(r => r.is_active).length;
+
   const monthlyEstimate = recurringExpenses
     .filter(r => r.is_active)
-    .reduce((sum, r) => {
-      const daysInMonth = 30;
-      let monthlyAmount = r.amount;
-      
-      switch(r.frequency) {
-        case 'daily': monthlyAmount = r.amount * daysInMonth; break;
-        case 'weekly': monthlyAmount = r.amount * 4.33; break;
-        case 'bi_weekly': monthlyAmount = r.amount * 2.17; break;
-        case 'monthly': monthlyAmount = r.amount; break;
-        case 'quarterly': monthlyAmount = r.amount / 3; break;
-        case 'semi_annual': monthlyAmount = r.amount / 6; break;
-        case 'annual': monthlyAmount = r.amount / 12; break;
-        default: monthlyAmount = r.amount;
-      }
-      
-      return sum + monthlyAmount;
-    }, 0);
+    .reduce((sum, r) => sum + getMonthlyEquivalent(r.amount, r.frequency), 0);
 
-  const getNextOccurrence = (lastGenerated, frequency) => {
-    const last = new Date(lastGenerated);
-    const next = new Date(last);
-
-    switch(frequency) {
-      case 'daily':
-        next.setDate(next.getDate() + 1);
-        break;
-      case 'weekly':
-        next.setDate(next.getDate() + 7);
-        break;
-      case 'bi_weekly':
-        next.setDate(next.getDate() + 14);
-        break;
-      case 'monthly':
-        next.setMonth(next.getMonth() + 1);
-        break;
-      case 'quarterly':
-        next.setMonth(next.getMonth() + 3);
-        break;
-      case 'semi_annual':
-        next.setMonth(next.getMonth() + 6);
-        break;
-      case 'annual':
-        next.setFullYear(next.getFullYear() + 1);
-        break;
-      default:
-        return last;
-    }
-
-    return next;
+  // Tab counts from full list, not filtered
+  const tabCounts = {
+    all: recurringExpenses.length,
+    active: recurringExpenses.filter(r => r.is_active).length,
+    inactive: recurringExpenses.filter(r => !r.is_active).length,
   };
 
-  const getStatusVariant = (isActive) => {
-    return isActive ? 'success' : 'default';
-  };
+  const getStatusVariant = (isActive) => isActive ? 'success' : 'default';
 
   if (loading) return <PageLayout title="Recurring Expenses"><Loader /></PageLayout>;
   if (error) return <PageLayout title="Recurring Expenses"><ErrorDisplay message={error} /></PageLayout>;
@@ -152,7 +140,7 @@ export default function RecurringExpensesPage() {
               transition: 'var(--transition)'
             }}
           >
-            {status.charAt(0).toUpperCase() + status.slice(1)} ({filtered.length})
+            {status.charAt(0).toUpperCase() + status.slice(1)} ({tabCounts[status]})
           </button>
         ))}
       </div>
@@ -161,12 +149,14 @@ export default function RecurringExpensesPage() {
         <EmptyState
           icon="🔄"
           title={filterStatus === 'all' ? 'No recurring expenses yet' : `No ${filterStatus} templates`}
-          description="Create a recurring expense template to automate your expenses"
+          description="Create a recurring expense template to automate your monthly expenses"
         />
       ) : (
         <div style={{ display: 'grid', gap: '1rem' }}>
           {filtered.map(recurring => {
-            const nextDate = getNextOccurrence(recurring.last_generated_date || new Date(), recurring.frequency);
+            const nextDate = getNextOccurrence(recurring.last_generated_date, recurring.frequency);
+            const isNextSoon = (nextDate - new Date()) < 3 * 24 * 60 * 60 * 1000;
+
             return (
               <Card key={recurring.id} style={{ padding: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
@@ -175,7 +165,7 @@ export default function RecurringExpensesPage() {
                       {recurring.title}
                     </h3>
                     <p style={{ margin: '0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                      {recurring.category}
+                      {recurring.category} · {recurring.payment_method}
                     </p>
                   </div>
                   <Badge variant={getStatusVariant(recurring.is_active)}>
@@ -193,13 +183,15 @@ export default function RecurringExpensesPage() {
                   <div>
                     <p style={{ margin: '0 0 0.5rem 0', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Frequency</p>
                     <p style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1rem' }}>
+                      {/* FIXED: looks up UPPERCASE key */}
                       {FREQUENCY_LABELS[recurring.frequency] || recurring.frequency}
                     </p>
                   </div>
                   <div>
                     <p style={{ margin: '0 0 0.5rem 0', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Next Occurrence</p>
-                    <p style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1rem' }}>
-                      {nextDate.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                    <p style={{ margin: 0, color: isNextSoon ? 'var(--warning, orange)' : 'var(--text-primary)', fontSize: '1rem', fontWeight: isNextSoon ? '600' : '400' }}>
+                      {nextDate.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {isNextSoon && ' ⚠️'}
                     </p>
                   </div>
                 </div>
@@ -210,7 +202,7 @@ export default function RecurringExpensesPage() {
                     variant={recurring.is_active ? 'secondary' : 'primary'}
                     style={{ flex: 1 }}
                   >
-                    {recurring.is_active ? 'Pause' : 'Resume'}
+                    {recurring.is_active ? '⏸ Pause' : '▶ Resume'}
                   </Button>
                   <Button
                     onClick={() => handleDelete(recurring.id)}
@@ -221,8 +213,10 @@ export default function RecurringExpensesPage() {
                   </Button>
                 </div>
 
-                <p style={{ margin: '1rem 0 0 0', padding: '0.5rem 0', color: 'var(--text-muted)', fontSize: '0.85rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-                  Last generated: {recurring.last_generated_date ? new Date(recurring.last_generated_date).toLocaleDateString('en-IN') : 'Never'}
+                <p style={{ margin: '1rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.85rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                  Last generated: {recurring.last_generated_date
+                    ? new Date(recurring.last_generated_date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : 'Never (will run next scheduled cycle)'}
                 </p>
               </Card>
             );

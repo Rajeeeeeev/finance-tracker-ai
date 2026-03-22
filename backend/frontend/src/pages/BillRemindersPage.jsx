@@ -10,15 +10,28 @@ export default function BillRemindersPage() {
   const { reminders, loading, error, fetchReminders, markAsPaid, deleteReminder } = useBillReminder();
   const [showForm, setShowForm] = useState(false);
   const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'pending', 'paid'
+  const [toast, setToast] = useState(null); // { message, type }
 
   useEffect(() => {
     fetchReminders();
-  }, []);
+  }, [fetchReminders]);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const handleMarkAsPaid = async (id) => {
-    const success = await markAsPaid(id);
-    if (success) {
-      await fetchReminders();
+    const result = await markAsPaid(id);
+
+    if (result?.success) {
+      let msg = '✅ Marked as paid — expense added to your records.';
+      if (result.nextReminderCreated) {
+        msg += ' Next month\'s reminder created automatically.';
+      }
+      showToast(msg, 'success');
+    } else {
+      showToast('❌ Failed to mark as paid. Please try again.', 'error');
     }
   };
 
@@ -26,7 +39,7 @@ export default function BillRemindersPage() {
     if (window.confirm('Delete this reminder?')) {
       const success = await deleteReminder(id);
       if (success) {
-        await fetchReminders();
+        showToast('Reminder deleted.', 'info');
       }
     }
   };
@@ -40,11 +53,13 @@ export default function BillRemindersPage() {
   const pendingCount = reminders.filter(r => !r.is_paid).length;
   const totalDue = reminders
     .filter(r => !r.is_paid)
-    .reduce((sum, r) => sum + (r.amount || 0), 0);
+    .reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
 
   const getDaysUntilDue = (dueDate) => {
     const due = new Date(dueDate);
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
     const diff = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
     return diff;
   };
@@ -60,17 +75,40 @@ export default function BillRemindersPage() {
   const getStatusLabel = (reminder) => {
     if (reminder.is_paid) return 'Paid';
     const daysLeft = getDaysUntilDue(reminder.due_date);
-    if (daysLeft < 0) return 'Overdue';
+    if (daysLeft < 0) return `Overdue by ${Math.abs(daysLeft)}d`;
     if (daysLeft === 0) return 'Due Today';
     if (daysLeft === 1) return 'Due Tomorrow';
     return `${daysLeft} days left`;
   };
 
+  // Count per tab (fix: count from full list, not filtered)
+  const tabCounts = {
+    all: reminders.length,
+    pending: reminders.filter(r => !r.is_paid).length,
+    paid: reminders.filter(r => r.is_paid).length,
+  };
+
   if (loading) return <PageLayout title="Bill Reminders"><Loader /></PageLayout>;
-  if (error) return <PageLayout title="Bill Reminders"><ErrorDisplay error={error} /></PageLayout>;
+  if (error) return <PageLayout title="Bill Reminders"><ErrorDisplay message={error} /></PageLayout>;
 
   return (
     <PageLayout title="Bill Reminders">
+
+      {/* Toast notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed', top: '1.5rem', right: '1.5rem', zIndex: 9999,
+          background: toast.type === 'error' ? 'var(--danger, #e53e3e)' : 'var(--success, #38a169)',
+          color: 'white', padding: '0.85rem 1.25rem',
+          borderRadius: 'var(--radius-sm, 8px)',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+          fontSize: '0.92rem', maxWidth: '360px',
+          transition: 'opacity 0.3s',
+        }}>
+          {toast.message}
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h2 style={{ margin: 0, color: 'var(--text-primary)' }}>Bill Reminders</h2>
@@ -113,7 +151,7 @@ export default function BillRemindersPage() {
               transition: 'var(--transition)'
             }}
           >
-            {status.charAt(0).toUpperCase() + status.slice(1)} ({filtered.length})
+            {status.charAt(0).toUpperCase() + status.slice(1)} ({tabCounts[status]})
           </button>
         ))}
       </div>
@@ -122,7 +160,7 @@ export default function BillRemindersPage() {
         <EmptyState
           icon="📋"
           title={filterStatus === 'all' ? 'No reminders yet' : `No ${filterStatus} reminders`}
-          message="Create a new bill reminder to get started"
+          description="Create a new bill reminder to get started"
         />
       ) : (
         <div style={{ display: 'grid', gap: '1rem' }}>
@@ -135,7 +173,7 @@ export default function BillRemindersPage() {
                   </h3>
                   {reminder.related_credit_card && (
                     <p style={{ margin: '0 0 0.5rem 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                      {reminder.related_credit_card.card_name} (****{reminder.related_credit_card.last_4_digits})
+                      {reminder.related_credit_card.card_name} (****{reminder.related_credit_card.last_four_digits})
                     </p>
                   )}
                   {reminder.notes && (
@@ -177,7 +215,7 @@ export default function BillRemindersPage() {
                     variant="primary"
                     style={{ flex: 1 }}
                   >
-                    Mark as Paid
+                    ✓ Mark as Paid
                   </Button>
                 )}
                 <Button
@@ -190,8 +228,9 @@ export default function BillRemindersPage() {
               </div>
 
               {reminder.is_recurring && (
-                <p style={{ margin: '1rem 0 0 0', padding: '0.5rem 0', color: 'var(--text-secondary)', fontSize: '0.85rem', fontStyle: 'italic', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-                  📅 Recurring
+                <p style={{ margin: '1rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.85rem', fontStyle: 'italic', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                  📅 Recurring {reminder.frequency}
+                  {reminder.recurring_until_date && ` · Until ${new Date(reminder.recurring_until_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}`}
                 </p>
               )}
             </Card>

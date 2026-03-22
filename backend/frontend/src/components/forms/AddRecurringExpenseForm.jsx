@@ -18,10 +18,10 @@ const EXPENSE_CATEGORIES = [
   'Other'
 ];
 const FREQUENCIES = [
-  { value: 'DAILY', label: 'Daily' },        // ← UPPERCASE
-  { value: 'WEEKLY', label: 'Weekly' },      // ← UPPERCASE
-  { value: 'MONTHLY', label: 'Monthly' },    // ← UPPERCASE
-  { value: 'YEARLY', label: 'Yearly' }       // ← UPPERCASE
+  { value: 'DAILY', label: 'Daily' },          
+  { value: 'WEEKLY', label: 'Weekly' },        
+  { value: 'MONTHLY', label: 'Monthly' },    
+  { value: 'YEARLY', label: 'Yearly' } ,       
 ];
 
 

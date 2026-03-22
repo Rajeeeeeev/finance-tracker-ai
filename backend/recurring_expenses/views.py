@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from .models import RecurringExpense
 from .serializers import RecurringExpenseSerializer
+from .services import generate_recurring_expenses
 
 
 class RecurringExpenseListCreateView(APIView):
@@ -62,3 +63,25 @@ class RecurringExpenseDetailView(APIView):
         expense.delete()
 
         return Response({"message": "Deleted"})
+
+
+class TriggerRecurringGenerationView(APIView):
+    """
+    POST /api/recurring-expenses/trigger-generation/
+    Manually triggers recurring expense generation.
+    Useful for testing without needing cron/Celery.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            generate_recurring_expenses()
+            return Response({
+                "message": "Recurring expense generation completed successfully.",
+                "status": "ok"
+            })
+        except Exception as e:
+            return Response({
+                "message": f"Error during generation: {str(e)}",
+                "status": "error"
+            }, status=500)

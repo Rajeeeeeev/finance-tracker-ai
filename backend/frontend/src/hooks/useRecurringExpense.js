@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { recurringExpenseService } from '../api/services/recurringExpenseService';
 
 export function useRecurringExpense() {
@@ -6,7 +6,7 @@ export function useRecurringExpense() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchRecurringExpenses = async () => {
+  const fetchRecurringExpenses = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -18,12 +18,12 @@ export function useRecurringExpense() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const addRecurringExpense = async (expenseData) => {
     try {
       const newExpense = await recurringExpenseService.create(expenseData);
-      setRecurringExpenses([...recurringExpenses, newExpense]);
+      setRecurringExpenses(prev => [...prev, newExpense]);
       return true;
     } catch (err) {
       setError(err.message || 'Failed to create recurring expense');
@@ -34,7 +34,7 @@ export function useRecurringExpense() {
   const deleteRecurringExpense = async (id) => {
     try {
       await recurringExpenseService.delete(id);
-      setRecurringExpenses(recurringExpenses.filter(re => re.id !== id));
+      setRecurringExpenses(prev => prev.filter(re => re.id !== id));
       return true;
     } catch (err) {
       setError(err.message || 'Failed to delete recurring expense');
@@ -45,7 +45,7 @@ export function useRecurringExpense() {
   const toggleActive = async (id, isActive) => {
     try {
       const updated = await recurringExpenseService.update(id, { is_active: isActive });
-      setRecurringExpenses(recurringExpenses.map(re => re.id === id ? updated : re));
+      setRecurringExpenses(prev => prev.map(re => re.id === id ? updated : re));
       return true;
     } catch (err) {
       setError(err.message || 'Failed to update recurring expense');

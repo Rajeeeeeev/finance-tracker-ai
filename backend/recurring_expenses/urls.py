@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     RecurringExpenseListCreateView,
     RecurringExpenseDetailView,
+    TriggerRecurringGenerationView,
 )
 
 urlpatterns = [
@@ -17,6 +18,12 @@ urlpatterns = [
         "<int:pk>/",
         RecurringExpenseDetailView.as_view(),
         name="recurring-detail"
+    ),
+
+    path(
+        "trigger-generation/",
+        TriggerRecurringGenerationView.as_view(),
+        name="recurring-trigger-generation"
     ),
 
 ]
