@@ -6,8 +6,8 @@ const NAV_ITEMS = [
   { icon: "↙", label: "Expenses",      path: "/expenses"     },
   { icon: "◎", label: "Investments",   path: "/investments"  },
   { icon: "★", label: "Credit Cards",  path: "/credit-cards" },
-  { icon: "⟳", label: "Recurring",     path: "/recurring"    },
-  { icon: "◉", label: "Bill Reminders",path: "/bills"        },
+  { icon: "⟳", label: "Recurring",     path: "/recurring-expenses"    },
+  { icon: "◉", label: "Bill Reminders",path: "/bill-reminders" },
   { icon: "◈", label: "Savings",       path: "/savings"      },
   { icon: "⊕", label: "Liabilities",   path: "/liabilities"  },
 ];
@@ -43,7 +43,7 @@ const Sidebar = ({ activePath = "/" }) => {
             fontFamily: "var(--font-display)",
             color: "var(--text-primary)", letterSpacing: "-0.01em",
           }}>
-            Expense AI
+            Expense
           </div>
           <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
             Finance Tracker
@@ -90,29 +90,6 @@ const Sidebar = ({ activePath = "/" }) => {
           );
         })}
       </nav>
-
-      {/* Bottom — AI Engine status chip */}
-      <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
-        <div style={{
-          padding: "10px 12px",
-          background: "var(--purple-soft)",
-          borderRadius: "var(--radius-md)",
-          display: "flex", alignItems: "center", gap: 8,
-        }}>
-          <span style={{ fontSize: 10, color: "var(--purple)" }}>●</span>
-          <div>
-            <div style={{
-              fontSize: 11, fontWeight: 600, color: "var(--purple)",
-              fontFamily: "var(--font-display)",
-            }}>
-              AI Engine
-            </div>
-            <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-              Phase 3 · Coming soon
-            </div>
-          </div>
-        </div>
-      </div>
     </aside>
   );
 };

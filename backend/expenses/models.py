@@ -16,6 +16,7 @@ class Expense(models.Model):
         ('Groceries', 'Groceries'),
         ('Rent', 'Rent'),
         ('Utilities', 'Utilities'),
+        ('Savings', 'Savings'),  # ← NEW: For auto-synced savings entries
         ('Other', 'Other'),
     ]
 

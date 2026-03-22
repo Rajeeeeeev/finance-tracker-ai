@@ -101,12 +101,12 @@ export default function RecurringExpensesPage() {
     return next;
   };
 
-  const getStatusColor = (isActive) => {
-    return isActive ? 'green' : 'gray';
+  const getStatusVariant = (isActive) => {
+    return isActive ? 'success' : 'default';
   };
 
   if (loading) return <PageLayout title="Recurring Expenses"><Loader /></PageLayout>;
-  if (error) return <PageLayout title="Recurring Expenses"><ErrorDisplay error={error} /></PageLayout>;
+  if (error) return <PageLayout title="Recurring Expenses"><ErrorDisplay message={error} /></PageLayout>;
 
   return (
     <PageLayout title="Recurring Expenses">
@@ -161,24 +161,24 @@ export default function RecurringExpensesPage() {
         <EmptyState
           icon="🔄"
           title={filterStatus === 'all' ? 'No recurring expenses yet' : `No ${filterStatus} templates`}
-          message="Create a recurring expense template to automate your expenses"
+          description="Create a recurring expense template to automate your expenses"
         />
       ) : (
         <div style={{ display: 'grid', gap: '1rem' }}>
           {filtered.map(recurring => {
-            const nextDate = getNextOccurrence(recurring.last_generated, recurring.frequency);
+            const nextDate = getNextOccurrence(recurring.last_generated_date || new Date(), recurring.frequency);
             return (
               <Card key={recurring.id} style={{ padding: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                   <div style={{ flex: 1 }}>
                     <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.1rem' }}>
-                      {recurring.expense_name}
+                      {recurring.title}
                     </h3>
                     <p style={{ margin: '0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                       {recurring.category}
                     </p>
                   </div>
-                  <Badge color={getStatusColor(recurring.is_active)}>
+                  <Badge variant={getStatusVariant(recurring.is_active)}>
                     {recurring.is_active ? 'Active' : 'Paused'}
                   </Badge>
                 </div>
@@ -204,14 +204,6 @@ export default function RecurringExpensesPage() {
                   </div>
                 </div>
 
-                {recurring.notes && (
-                  <div style={{ marginBottom: '1rem', padding: '0.75rem', background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)' }}>
-                    <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                      {recurring.notes}
-                    </p>
-                  </div>
-                )}
-
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <Button
                     onClick={() => handleToggleActive(recurring.id, recurring.is_active)}
@@ -222,15 +214,15 @@ export default function RecurringExpensesPage() {
                   </Button>
                   <Button
                     onClick={() => handleDelete(recurring.id)}
-                    variant="ghost"
+                    variant="danger"
                     style={{ flex: 0.5 }}
                   >
                     Delete
                   </Button>
                 </div>
 
-                <p style={{ margin: '1rem 0 0 0', padding: '0.75rem 0', color: 'var(--text-muted)', fontSize: '0.85rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-                  Last generated: {new Date(recurring.last_generated).toLocaleDateString('en-IN')}
+                <p style={{ margin: '1rem 0 0 0', padding: '0.5rem 0', color: 'var(--text-muted)', fontSize: '0.85rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                  Last generated: {recurring.last_generated_date ? new Date(recurring.last_generated_date).toLocaleDateString('en-IN') : 'Never'}
                 </p>
               </Card>
             );

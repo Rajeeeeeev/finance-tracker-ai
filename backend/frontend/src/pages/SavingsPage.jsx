@@ -316,6 +316,7 @@ export default function SavingsPage() {
             </h2>
             <AddSavingEntryForm
               goalId={selectedGoal.id}
+              goalName={selectedGoal.name}
               onSuccess={() => {
                 setShowEntryForm(false);
                 setSelectedGoal(null);

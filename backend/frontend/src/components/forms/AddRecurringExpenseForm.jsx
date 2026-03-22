@@ -4,35 +4,33 @@ import { Button, Loader } from '../../components/ui';
 //import Loader from '../../components/ui/Loader';
 
 const EXPENSE_CATEGORIES = [
-  'Food & Dining',
-  'Transportation',
+  'Food',
+  'Travel',
   'Shopping',
+  'Bills',
   'Entertainment',
-  'Bills & Utilities',
-  'Healthcare',
+  'Health',
   'Education',
-  'Personal Care',
-  'Subscriptions',
-  'Miscellaneous',
-  'Groceries'
+  'Groceries',
+  'Rent',
+  'Utilities',
+  'Savings',
+  'Other'
+];
+const FREQUENCIES = [
+  { value: 'DAILY', label: 'Daily' },        // ← UPPERCASE
+  { value: 'WEEKLY', label: 'Weekly' },      // ← UPPERCASE
+  { value: 'MONTHLY', label: 'Monthly' },    // ← UPPERCASE
+  { value: 'YEARLY', label: 'Yearly' }       // ← UPPERCASE
 ];
 
-const FREQUENCIES = [
-  { value: 'daily', label: 'Daily' },
-  { value: 'weekly', label: 'Weekly' },
-  { value: 'bi_weekly', label: 'Bi-weekly' },
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'quarterly', label: 'Quarterly' },
-  { value: 'semi_annual', label: 'Semi-annual' },
-  { value: 'annual', label: 'Annual' }
-];
 
 export default function AddRecurringExpenseForm({ onSuccess, onCancel }) {
   const [formData, setFormData] = useState({
     expense_name: '',
-    category: 'Food & Dining',
+    category: 'Food',
     amount: '',
-    frequency: 'monthly',
+    frequency: 'MONTHLY',  
     notes: ''
   });
   const [loading, setLoading] = useState(false);
@@ -59,13 +57,13 @@ export default function AddRecurringExpenseForm({ onSuccess, onCancel }) {
       }
 
       const payload = {
-        expense_name: formData.expense_name,
-        category: formData.category,
-        amount: parseFloat(formData.amount),
-        frequency: formData.frequency,
-        notes: formData.notes,
-        is_active: true
-      };
+  title: formData.expense_name,
+  category: formData.category,
+  amount: parseFloat(formData.amount),
+  frequency: formData.frequency,  // ← Now uppercase
+  start_date: new Date().toISOString().split('T')[0],  // ← ADD THIS
+  is_active: true
+};
 
       await recurringExpenseService.create(payload);
       onSuccess();

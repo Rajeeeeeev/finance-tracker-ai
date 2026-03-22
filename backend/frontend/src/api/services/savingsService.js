@@ -43,7 +43,34 @@ export const savingsService = {
   },
 
   async createEntry(data) {
-    return await makeRequest('/savings/entries/create/', 'POST', data);
+    try {
+      // 1. Create the savings entry FIRST
+      const savedEntry = await makeRequest('/savings/entries/create/', 'POST', data);
+
+      // 2. Auto-sync to expenses with category='Savings'
+      try {
+        const expensePayload = {
+          amount: data.amount,
+          category: 'Savings',
+          date: data.date,
+          description: data.goal_name ? `Savings: ${data.goal_name}` : 'Savings Entry',
+          payment_method: 'Bank Transfer' // Default method for savings
+          // NOTE: Do NOT include 'user' - AddExpenseView auto-assigns from request.user.id
+          // NOTE: Do NOT include 'source' if it has a default in the model
+        };
+
+        const expenseResponse = await makeRequest('/expenses/add/', 'POST', expensePayload);
+        console.log('✅ Savings entry synced to expenses:', expenseResponse);
+      } catch (expenseError) {
+        console.warn('⚠️ Savings entry created but expense sync failed:', expenseError);
+        // Don't throw - entry was created successfully, just log warning
+        // User still sees the savings entry even if expense sync fails
+      }
+
+      return savedEntry;
+    } catch (error) {
+      throw error;
+    }
   },
 
   async deleteEntry(id) {

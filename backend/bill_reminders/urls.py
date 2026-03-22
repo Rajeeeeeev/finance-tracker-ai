@@ -4,7 +4,7 @@ from .views import (
     AddBillReminderView,
     ReminderListView,
     MarkReminderPaidView,
-    OverdueReminderView,
+    DeleteBillReminderView,
     UpdateBillReminderView,
 )
 
@@ -29,15 +29,15 @@ urlpatterns = [
     ),
 
     path(
-        "update/<int:reminder_id>/",
-        UpdateBillReminderView.as_view(),
-        name="update-reminder"
+        "delete/<int:reminder_id>/",
+        DeleteBillReminderView.as_view(),
+        name="delete-reminder"
     ),
 
     path(
-        "overdue/",
-        OverdueReminderView.as_view(),
-        name="overdue-reminders"
+        "update/<int:reminder_id>/",
+        UpdateBillReminderView.as_view(),
+        name="update-reminder"
     ),
 
 ]
