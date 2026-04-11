@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'credit_cards',
     'financial_summary',
     'corsheaders',
+    'analytics',
 
 ]
 

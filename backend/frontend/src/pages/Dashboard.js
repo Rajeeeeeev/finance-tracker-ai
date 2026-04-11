@@ -5,6 +5,7 @@ import StatCard from "../components/ui/StatCard";
 import { Card, Badge, Loader, ErrorDisplay } from "../components/ui";
 import { IncomeVsExpenseChart, NetWorthTrendChart, ExpenseCategoryChart } from "../components/charts";
 import useFinancialSummary from "../hooks/useFinancialSummary";
+import { useAnalytics } from "../hooks/useAnalytics";
 
 // ─── FORMATTER ────────────────────────────────────────────────────────────────
 const fmt = (n) =>
@@ -116,7 +117,12 @@ const Dashboard = () => {
     data, loading, error,
     filterMode, applyCurrentMonth, applySpecificMonth, applyCustomRange,
   } = useFinancialSummary();
-
+const { 
+  monthlyTrend, 
+  categoryData: analyticsCategory,
+  setSelectedYear,
+  setSelectedMonth
+} = useAnalytics();
   const now = new Date();
   const periodLabel = now.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
 
@@ -146,6 +152,22 @@ const Dashboard = () => {
     { name: "Liability EMIs",    value: Number(data.total_liability_payments) },
   ].filter((d) => d.value > 0);
 
+  const chartData = (monthlyTrend || []).map((m) => ({
+  month: m.label,
+  income: m.income,
+  expense: m.expenses,
+}));
+
+const netWorthData = chartData.map((d) => ({
+  month: d.month,
+  netWorth: d.income - d.expense,
+}));
+
+const categoryChartData = (analyticsCategory?.breakdown || []).map((c) => ({
+  name: c.category,
+  value: c.amount,
+}));
+
   return (
     <PageLayout activePath="/">
       <TopBar
@@ -154,8 +176,18 @@ const Dashboard = () => {
         filterSlot={
           <FilterBar
             mode={filterMode}
-            onCurrentMonth={applyCurrentMonth}
-            onSpecificMonth={applySpecificMonth}
+  onCurrentMonth={() => {
+    applyCurrentMonth();
+    const now = new Date();
+    setSelectedYear(now.getFullYear());
+    setSelectedMonth(now.getMonth() + 1);
+  }}
+
+  onSpecificMonth={(year, month) => {
+    applySpecificMonth(year, month);
+    setSelectedYear(year);      // 🔥 IMPORTANT
+    setSelectedMonth(month);    // 🔥 IMPORTANT
+  }}
             onCustomRange={applyCustomRange}
           />
         }
@@ -210,16 +242,20 @@ const Dashboard = () => {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <Card title="Income vs Expenses" subtitle="Last 6 months">
             {/* TODO Phase 2: wire real monthly data from /api/income/income-summary/ */}
-            <IncomeVsExpenseChart data={[]} />
-            <p style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)", textAlign: "center" }}>
-              📌 Monthly chart data coming in Phase 2 analytics endpoints
-            </p>
+            <IncomeVsExpenseChart data={chartData} />
+            {/*
+<p style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)", textAlign: "center" }}>
+  📌 Trend data coming in Phase 2 analytics endpoints
+</p>
+*/}
           </Card>
           <Card title="Net Worth Trend" subtitle="6-month trajectory">
-            <NetWorthTrendChart data={[]} />
-            <p style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)", textAlign: "center" }}>
-              📌 Trend data coming in Phase 2 analytics endpoints
-            </p>
+            <NetWorthTrendChart data={netWorthData} />
+            {/*
+<p style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)", textAlign: "center" }}>
+  📌 Trend data coming in Phase 2 analytics endpoints
+</p>
+*/}
           </Card>
         </div>
 
@@ -228,7 +264,7 @@ const Dashboard = () => {
 
           {/* Expense Breakdown Pie */}
           <Card title="Expense Breakdown" subtitle={data.period}>
-            <ExpenseCategoryChart data={categoryData} />
+            <ExpenseCategoryChart data={categoryChartData} />
           </Card>
 
           {/* Financial Allocation */}
