@@ -41,8 +41,29 @@ const UtilizationBar = ({ percent }) => {
 };
 
 const CreditCardsPage = () => {
-  const { cards, summary, loading, error, submitting, addCard, deleteCard } = useCreditCard();
+  // payBill is now destructured from the hook
+  const { cards, summary, loading, error, submitting, addCard, deleteCard, payBill } = useCreditCard();
   const [showForm, setShowForm] = useState(false);
+  // Track which reminder is being paid to show per-card loading state
+  const [payingReminderId, setPayingReminderId] = useState(null);
+  // Toast message
+  const [toast, setToast] = useState(null);
+
+  const showToast = (msg, isError = false) => {
+    setToast({ msg, isError });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handlePayBill = async (reminderId, cardName) => {
+    setPayingReminderId(reminderId);
+    const result = await payBill(reminderId);
+    setPayingReminderId(null);
+    if (result.success) {
+      showToast(`✅ ${cardName} bill marked as paid. Balance updated.`);
+    } else {
+      showToast(`❌ ${result.error}`, true);
+    }
+  };
 
   return (
     <PageLayout activePath="/credit-cards">
@@ -56,6 +77,21 @@ const CreditCardsPage = () => {
         onAdd={() => setShowForm(true)}
         addLabel="+ Add Card"
       />
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: "fixed", top: 20, right: 24, zIndex: 9999,
+          background: toast.isError ? "var(--red-soft)" : "var(--green-soft)",
+          border: `1px solid ${toast.isError ? "var(--red)" : "var(--green)"}`,
+          color: toast.isError ? "var(--red)" : "var(--green)",
+          padding: "10px 18px", borderRadius: "var(--radius-md)",
+          fontSize: 13, fontFamily: "var(--font-mono)", fontWeight: 600,
+          boxShadow: "0 4px 24px rgba(0,0,0,0.3)",
+        }}>
+          {toast.msg}
+        </div>
+      )}
 
       <main style={{ padding: "28px 32px", display: "flex", flexDirection: "column", gap: 20 }}>
 
@@ -127,7 +163,7 @@ const CreditCardsPage = () => {
                     onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "var(--surface-1)")}
                   >
-                    {/* Top row: card info + delete */}
+                    {/* Top row: card info + actions */}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -147,17 +183,37 @@ const CreditCardsPage = () => {
                           {card.bank_name} · ****{card.last_four_digits}
                         </span>
                       </div>
-                      <button
-                        onClick={() => deleteCard(card.id)}
-                        style={{
-                          background: "var(--red-soft)", color: "var(--red)",
-                          border: "none", borderRadius: "var(--radius-sm)",
-                          padding: "4px 10px", fontSize: 11, fontWeight: 600,
-                          fontFamily: "var(--font-mono)", cursor: "pointer",
-                        }}
-                      >
-                        Remove
-                      </button>
+
+                      {/* Action buttons */}
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        {/* Pay Bill button — only show if card has an unpaid bill reminder */}
+                        {card.unpaid_reminder_id && (
+                          <button
+                            onClick={() => handlePayBill(card.unpaid_reminder_id, card.card_name)}
+                            disabled={payingReminderId === card.unpaid_reminder_id || submitting}
+                            style={{
+                              background: "var(--green-soft)", color: "var(--green)",
+                              border: "1px solid var(--green)", borderRadius: "var(--radius-sm)",
+                              padding: "4px 12px", fontSize: 11, fontWeight: 600,
+                              fontFamily: "var(--font-mono)", cursor: "pointer",
+                              opacity: payingReminderId === card.unpaid_reminder_id ? 0.6 : 1,
+                            }}
+                          >
+                            {payingReminderId === card.unpaid_reminder_id ? "Paying…" : "Pay Bill"}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => deleteCard(card.id)}
+                          style={{
+                            background: "var(--red-soft)", color: "var(--red)",
+                            border: "none", borderRadius: "var(--radius-sm)",
+                            padding: "4px 10px", fontSize: 11, fontWeight: 600,
+                            fontFamily: "var(--font-mono)", cursor: "pointer",
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
 
                     {/* Stats row */}

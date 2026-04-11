@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { creditCardService } from "../api/services/creditCardService";
+import { billReminderService } from "../api/services/billReminderService";
 
 const useCreditCard = () => {
   const [cards, setCards]           = useState([]);
@@ -12,11 +13,11 @@ const useCreditCard = () => {
     setLoading(true);
     setError(null);
     try {
-      const [cardsRes, summaryRes] = await Promise.all([
-        creditCardService.getAll(),
-        creditCardService.getSummary(),
-      ]);
-      setCards(cardsRes);
+      // getSummary() returns { cards: [...summaries], total_credit_limit, ... }
+      // Each entry already has current_balance, available_credit, utilization_percent.
+      // Using only this endpoint avoids stale data from a separate getAll() call.
+      const summaryRes = await creditCardService.getSummary();
+      setCards(summaryRes.cards || []);
       setSummary(summaryRes);
     } catch (err) {
       setError("Failed to load credit cards.");
@@ -49,7 +50,33 @@ const useCreditCard = () => {
     }
   };
 
-  return { cards, summary, loading, error, submitting, addCard, deleteCard, refetch: fetchCards };
+  // Pay a credit card bill.
+  // Uses markAsPaid — the correct method name in billReminderService.
+  // After payment, re-fetches summary so balance resets to 0 instantly.
+  const payBill = async (reminderId) => {
+    setSubmitting(true);
+    try {
+      await billReminderService.markAsPaid(reminderId); // ✅ correct name
+      await fetchCards();                               // ✅ triggers balance refresh
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message || "Failed to mark bill as paid." };
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return {
+    cards,
+    summary,
+    loading,
+    error,
+    submitting,
+    addCard,
+    deleteCard,
+    payBill,
+    refetch: fetchCards,
+  };
 };
 
 export default useCreditCard;

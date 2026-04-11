@@ -16,7 +16,7 @@ class Expense(models.Model):
         ('Groceries', 'Groceries'),
         ('Rent', 'Rent'),
         ('Utilities', 'Utilities'),
-        ('Savings', 'Savings'),  # ← NEW: For auto-synced savings entries
+        ('Savings', 'Savings'),
         ('Other', 'Other'),
     ]
 
@@ -34,6 +34,10 @@ class Expense(models.Model):
         ("EMI", "EMI"),
         ("RECURRING", "Recurring"),
         ("BILL", "Bill"),
+        # Credit card purchases: recorded for card tracking but
+        # EXCLUDED from all expense totals/aggregates until the
+        # bill is paid (at which point a BILL source expense is created).
+        ("CREDIT_CARD", "Credit Card Purchase"),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -74,6 +78,7 @@ class Expense(models.Model):
         blank=True,
         related_name="expenses"
     )
+
     credit_card = models.ForeignKey(
         "credit_cards.CreditCard",
         on_delete=models.SET_NULL,

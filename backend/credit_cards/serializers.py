@@ -37,14 +37,19 @@ class CreditCardSerializer(serializers.ModelSerializer):
         prev_month = first - datetime.timedelta(days=1)
         return self._safe_replace_day(prev_month, obj.billing_date)
 
+    # ✅ FIXED FUNCTION
     def get_current_balance(self, obj):
         cycle_start = self._get_cycle_start(obj)
-        # ✅ FIX: Convert date to datetime and use created_at instead of date
         cycle_start_dt = datetime.datetime.combine(cycle_start, datetime.time.min)
-        
-        total = obj.expenses.filter(created_at__gte=cycle_start_dt).aggregate(
+
+        total = obj.expenses.filter(
+            created_at__gte=cycle_start_dt
+        ).exclude(
+            source="BILL"   # ✅ prevents double counting
+        ).aggregate(
             total=Sum('amount')
         )['total'] or Decimal('0.00')
+
         return float(total)
 
     def get_available_credit(self, obj):
