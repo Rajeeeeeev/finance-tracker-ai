@@ -42,6 +42,19 @@ const useInvestment = () => {
     }
   };
 
+  const updateInvestment = async (id, payload) => {
+    setSubmitting(true);
+    try {
+      await investmentService.update(id, payload);
+      await fetchAll();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const deleteInvestment = async (id) => {
     try {
       await investmentService.delete(id);
@@ -52,7 +65,27 @@ const useInvestment = () => {
     }
   };
 
-  return { investments, summary, loading, error, submitting, addInvestment, deleteInvestment, refresh: fetchAll };
+  const fetchLogs = useCallback(async (id) => {
+    try {
+      const logs = await investmentService.getLogs(id);
+      return { success: true, data: logs };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }, []);
+
+  return {
+    investments,
+    summary,
+    loading,
+    error,
+    submitting,
+    addInvestment,
+    updateInvestment,
+    deleteInvestment,
+    fetchLogs,
+    refresh: fetchAll,
+  };
 };
 
 export default useInvestment;

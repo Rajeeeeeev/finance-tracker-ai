@@ -137,3 +137,58 @@ class Investment(models.Model):
     def __str__(self):
 
         return f"{self.name} ({self.investment_type})"
+    
+class InvestmentLog(models.Model):
+
+    FIELD_CHOICES = [
+        ("invested", "Invested Amount"),
+        ("current", "Current Amount"),
+    ]
+
+    investment = models.ForeignKey(
+        Investment,
+        on_delete=models.CASCADE,
+        related_name="logs"
+    )
+
+    field_changed = models.CharField(
+        max_length=10,
+        choices=FIELD_CHOICES
+    )
+
+    old_value = models.DecimalField(
+        max_digits=14,
+        decimal_places=2
+    )
+
+    new_value = models.DecimalField(
+        max_digits=14,
+        decimal_places=2
+    )
+
+    delta = models.DecimalField(
+        max_digits=14,
+        decimal_places=2
+    )
+
+    note = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    )
+
+    changed_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+        db_table = "investment_logs"
+        ordering = ["-changed_at"]
+        indexes = [
+            models.Index(fields=["investment"]),
+            models.Index(fields=["changed_at"]),
+        ]
+
+    def __str__(self):
+        direction = "↑" if self.delta >= 0 else "↓"
+        return f"{self.investment.name} — {self.field_changed} {direction} {self.delta}"    

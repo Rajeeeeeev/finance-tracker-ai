@@ -42,5 +42,10 @@ urlpatterns = [
         views.delete_investment,      # DELETE
         name="investments-delete"
     ),
-
+# LOGS — change history for a specific investment
+    path(
+        "investments/<int:pk>/logs/",
+        views.get_investment_logs,
+        name="investments-logs"
+    ),
 ]

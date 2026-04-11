@@ -3,8 +3,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import Investment
-from .serializers import InvestmentSerializer
+from .models import Investment, InvestmentLog
+from .serializers import InvestmentSerializer, InvestmentLogSerializer
 
 from .services import (
     get_user_investments,
@@ -149,3 +149,30 @@ def investment_update_reminders(request):
     reminders = get_stale_investment_updates(request.user.id)
 
     return Response({"reminders": reminders})
+
+# INVESTMENT CHANGE LOG
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_investment_logs(request, pk):
+    """
+    Return the change log for a specific investment.
+    Only the owner can view their investment logs.
+    """
+    investment = Investment.objects.filter(
+        pk=pk,
+        user=request.user,
+        is_active=True
+    ).first()
+
+    if not investment:
+        return Response(
+            {"error": "Investment not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    logs = InvestmentLog.objects.filter(
+        investment=investment
+    ).order_by("-changed_at")[:50]
+
+    serializer = InvestmentLogSerializer(logs, many=True)
+    return Response(serializer.data)

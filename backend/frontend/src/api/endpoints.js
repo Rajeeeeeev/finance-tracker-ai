@@ -27,7 +27,7 @@ const ENDPOINTS = {
   INVESTMENT_SUMMARY: "/investments/investments/summary/",
   INVESTMENT_UPDATE: (id) => `/investments/investments/${id}/update/`,
   INVESTMENT_DELETE: (id) => `/investments/investments/${id}/delete/`,
-
+  INVESTMENT_LOGS: (id) => `/investments/investments/${id}/logs/`,
   // Liabilities
   LIABILITY_CREATE: "/liabilities/create/",
   LIABILITY_LIST: "/liabilities/list/",

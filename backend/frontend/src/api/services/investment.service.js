@@ -1,14 +1,12 @@
 import apiClient from "../client";
 import ENDPOINTS from "../endpoints";
 
-// Investment types: EQUITY | COMMODITY | BOND | DEPOSIT | OTHER
 const investmentService = {
   list() {
     return apiClient.get(ENDPOINTS.INVESTMENT_LIST);
   },
 
   add(payload) {
-    // payload: { investment_type, name, symbol?, invested_amount, current_amount, notes? }
     return apiClient.post(ENDPOINTS.INVESTMENT_ADD, payload);
   },
 
@@ -22,6 +20,10 @@ const investmentService = {
 
   summary() {
     return apiClient.get(ENDPOINTS.INVESTMENT_SUMMARY);
+  },
+
+  getLogs(id) {
+    return apiClient.get(ENDPOINTS.INVESTMENT_LOGS(id));
   },
 };
 

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Investment
+from .models import Investment, InvestmentLog
 
 
 class InvestmentSerializer(serializers.ModelSerializer):
@@ -26,3 +26,18 @@ class InvestmentSerializer(serializers.ModelSerializer):
             "updated_at",
 
         )
+
+
+class InvestmentLogSerializer(serializers.ModelSerializer):
+
+    direction = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InvestmentLog
+        fields = [
+            "id", "field_changed", "old_value", "new_value",
+            "delta", "direction", "note", "changed_at",
+        ]
+
+    def get_direction(self, obj):
+        return "up" if obj.delta >= 0 else "down"
